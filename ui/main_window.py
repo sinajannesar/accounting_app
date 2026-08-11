@@ -3,6 +3,7 @@
 import sys
 
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QMainWindow, QTabWidget, QMenuBar, QMenu, QAction,
     QStatusBar, QFileDialog, QApplication,
@@ -36,7 +37,7 @@ class MainWindow(QMainWindow):
         self.journal_model = JournalModel(self.db)
         self.report_model = ReportModel(self.db, self.account_model)
 
-        self.setWindowTitle("نرم‌افزار حسابداری")
+        self.setWindowTitle("💼 نرم‌افزار حسابداری")
         self.setMinimumSize(1000, 650)
         self.setLayoutDirection(Qt.RightToLeft)
         self.setStyleSheet(APP_STYLE)
@@ -72,21 +73,32 @@ class MainWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.setLayoutDirection(Qt.RightToLeft)
 
-        self.tabs.addTab(DashboardWidget(self.report_model, self.journal_model, self.db), "داشبورد")
-        self.tabs.addTab(AccountsWidget(self.account_model), "سرفصل حساب‌ها")
-        self.tabs.addTab(JournalWidget(self.journal_model, self.account_model), "اسناد حسابداری")
-        self.tabs.addTab(CashWidget(self.db, self.journal_model, self.account_model), "صندوق")
-        self.tabs.addTab(SubsidiaryLedgerWidget(self.report_model, self.account_model), "دفتر معین")
-        self.tabs.addTab(GeneralLedgerWidget(self.report_model), "دفتر کل")
-        self.tabs.addTab(TrialBalanceWidget(self.report_model), "تراز آزمایشی")
-        self.tabs.addTab(IncomeStatementWidget(self.report_model), "سود و زیان")
+        self.tabs.addTab(DashboardWidget(self.report_model, self.journal_model, self.db), "📊 داشبورد")
+        self.tabs.addTab(AccountsWidget(self.account_model), "📁 سرفصل حساب‌ها")
+        self.tabs.addTab(JournalWidget(self.journal_model, self.account_model), "📝 اسناد حسابداری")
+        self.tabs.addTab(CashWidget(self.db, self.journal_model, self.account_model), "💰 صندوق")
+
+        reports_tabs = QTabWidget()
+        reports_tabs.setLayoutDirection(Qt.RightToLeft)
+        reports_tabs.addTab(SubsidiaryLedgerWidget(self.report_model, self.account_model), "دفتر معین")
+        reports_tabs.addTab(GeneralLedgerWidget(self.report_model), "دفتر کل")
+        reports_tabs.addTab(TrialBalanceWidget(self.report_model), "تراز آزمایشی")
+        reports_tabs.addTab(IncomeStatementWidget(self.report_model), "سود و زیان")
+        reports_tabs.currentChanged.connect(lambda i: self._refresh_widget(reports_tabs.widget(i)))
+        self.tabs.addTab(reports_tabs, "📑 گزارش‌ها")
 
         self.setCentralWidget(self.tabs)
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
     def _on_tab_changed(self, index):
         widget = self.tabs.widget(index)
-        if hasattr(widget, "refresh"):
+        self._refresh_widget(widget)
+
+    def _refresh_widget(self, widget):
+        if isinstance(widget, QTabWidget):
+            inner = widget.currentWidget()
+            self._refresh_widget(inner)
+        elif hasattr(widget, "refresh"):
             widget.refresh()
 
     def _backup(self):
@@ -116,7 +128,12 @@ class MainWindow(QMainWindow):
     def _reload_all(self):
         for i in range(self.tabs.count()):
             widget = self.tabs.widget(i)
-            if hasattr(widget, "refresh"):
+            if isinstance(widget, QTabWidget):
+                for j in range(widget.count()):
+                    inner = widget.widget(j)
+                    if hasattr(inner, "refresh"):
+                        inner.refresh()
+            elif hasattr(widget, "refresh"):
                 widget.refresh()
 
     def _check_due_reminders(self):
@@ -166,6 +183,7 @@ class MainWindow(QMainWindow):
 def run_app(db_path=None):
     app = QApplication(sys.argv)
     app.setLayoutDirection(Qt.RightToLeft)
+    app.setFont(QFont("Tahoma", 10))
     window = MainWindow(db_path)
     window.show()
     sys.exit(app.exec_())

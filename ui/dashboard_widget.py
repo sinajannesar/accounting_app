@@ -153,7 +153,7 @@ class DashboardWidget(QWidget):
         layout.addWidget(self.chart)
 
         btn_layout = QHBoxLayout()
-        refresh_btn = QPushButton("بروزرسانی")
+        refresh_btn = QPushButton("🔄 بروزرسانی")
         refresh_btn.clicked.connect(self.refresh)
         btn_layout.addWidget(refresh_btn)
         btn_layout.addStretch()

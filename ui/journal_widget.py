@@ -42,7 +42,7 @@ class JournalLineDialog(QDialog):
         layout.addRow("شرح:", self.desc_edit)
 
         btn_layout = QHBoxLayout()
-        save_btn = QPushButton("تأیید")
+        save_btn = QPushButton("✔ تأیید")
         save_btn.clicked.connect(self.accept)
         cancel_btn = QPushButton("انصراف")
         cancel_btn.clicked.connect(self.reject)
@@ -109,11 +109,11 @@ class JournalEntryDialog(QDialog):
         lines_group = QGroupBox("سطرهای سند")
         lines_layout = QVBoxLayout(lines_group)
         line_btns = QHBoxLayout()
-        add_line_btn = QPushButton("افزودن سطر")
+        add_line_btn = QPushButton("➕ افزودن سطر")
         add_line_btn.clicked.connect(self._add_line)
-        edit_line_btn = QPushButton("ویرایش سطر")
+        edit_line_btn = QPushButton("✏ ویرایش سطر")
         edit_line_btn.clicked.connect(self._edit_line)
-        del_line_btn = QPushButton("حذف سطر")
+        del_line_btn = QPushButton("🗑 حذف سطر")
         del_line_btn.setObjectName("dangerBtn")
         del_line_btn.clicked.connect(self._delete_line)
         line_btns.addWidget(add_line_btn)
@@ -133,7 +133,7 @@ class JournalEntryDialog(QDialog):
         layout.addWidget(lines_group)
 
         btn_layout = QHBoxLayout()
-        save_btn = QPushButton("ذخیره سند")
+        save_btn = QPushButton("✔ ذخیره سند")
         save_btn.setObjectName("successBtn")
         save_btn.clicked.connect(self._save)
         cancel_btn = QPushButton("انصراف")
@@ -245,137 +245,3 @@ class JournalWidget(QWidget):
         self.date_range = DateRangeWidget()
         filter_layout.addWidget(self.date_range)
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("جستجو...")
-        self.search_edit.textChanged.connect(self.refresh)
-        filter_layout.addWidget(self.search_edit)
-        refresh_btn = QPushButton("بروزرسانی")
-        refresh_btn.clicked.connect(self.refresh)
-        filter_layout.addWidget(refresh_btn)
-        all_layout.addLayout(filter_layout)
-
-        btn_layout = QHBoxLayout()
-        add_btn = QPushButton("سند جدید")
-        add_btn.setObjectName("successBtn")
-        add_btn.clicked.connect(self._add)
-        edit_btn = QPushButton("ویرایش")
-        edit_btn.clicked.connect(self._edit)
-        del_btn = QPushButton("حذف")
-        del_btn.setObjectName("dangerBtn")
-        del_btn.clicked.connect(self._delete)
-        print_btn = QPushButton("چاپ رسید")
-        print_btn.clicked.connect(self._print_receipt)
-        btn_layout.addWidget(add_btn)
-        btn_layout.addWidget(edit_btn)
-        btn_layout.addWidget(del_btn)
-        btn_layout.addWidget(print_btn)
-        all_layout.addLayout(btn_layout)
-
-        self.table = QTableWidget()
-        self.table.setColumnCount(7)
-        self.table.setHorizontalHeaderLabels([
-            "شماره", "تاریخ", "سررسید", "شرح", "بدهکار", "بستانکار", "",
-        ])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setAlternatingRowColors(True)
-        self.table.itemDoubleClicked.connect(self._edit)
-        all_layout.addWidget(self.table)
-        tabs.addTab(all_tab, "همه اسناد")
-
-        due_tab = QWidget()
-        due_layout = QVBoxLayout(due_tab)
-        self.due_table = QTableWidget()
-        self.due_table.setColumnCount(6)
-        self.due_table.setHorizontalHeaderLabels([
-            "شماره", "تاریخ", "سررسید", "شرح", "مبلغ", "",
-        ])
-        self.due_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.due_table.setAlternatingRowColors(True)
-        due_layout.addWidget(self.due_table)
-        tabs.addTab(due_tab, "اسناد سررسیددار")
-
-        layout.addWidget(tabs)
-
-    def refresh(self):
-        try:
-            d_from, d_to = self.date_range.get_range()
-        except ValueError:
-            d_from, d_to = None, None
-        search = self.search_edit.text().strip()
-        entries = self.journal_model.get_entries(d_from, d_to, search)
-        self.table.setRowCount(len(entries))
-        for row, entry in enumerate(entries):
-            self.table.setItem(row, 0, QTableWidgetItem(str(entry["entry_number"])))
-            self.table.setItem(row, 1, QTableWidgetItem(entry["entry_date"]))
-            self.table.setItem(row, 2, QTableWidgetItem(entry.get("due_date") or ""))
-            self.table.setItem(row, 3, QTableWidgetItem(entry.get("description") or ""))
-            self.table.setItem(row, 4, QTableWidgetItem(format_amount(entry["total_debit"])))
-            self.table.setItem(row, 5, QTableWidgetItem(format_amount(entry["total_credit"])))
-            id_item = QTableWidgetItem("")
-            id_item.setData(Qt.UserRole, entry["id"])
-            self.table.setItem(row, 6, id_item)
-
-        due_entries = self.journal_model.get_due_entries(d_to)
-        self.due_table.setRowCount(len(due_entries))
-        for row, entry in enumerate(due_entries):
-            self.due_table.setItem(row, 0, QTableWidgetItem(str(entry["entry_number"])))
-            self.due_table.setItem(row, 1, QTableWidgetItem(entry["entry_date"]))
-            self.due_table.setItem(row, 2, QTableWidgetItem(entry.get("due_date") or ""))
-            self.due_table.setItem(row, 3, QTableWidgetItem(entry.get("description") or ""))
-            self.due_table.setItem(row, 4, QTableWidgetItem(format_amount(entry["total_debit"])))
-            id_item = QTableWidgetItem("")
-            id_item.setData(Qt.UserRole, entry["id"])
-            self.due_table.setItem(row, 5, id_item)
-
-    def _selected_id(self):
-        row = self.table.currentRow()
-        if row >= 0:
-            return self.table.item(row, 6).data(Qt.UserRole)
-        return None
-
-    def _add(self):
-        dlg = JournalEntryDialog(self.journal_model, self.account_model, parent=self)
-        if dlg.exec_():
-            self.refresh()
-            show_info(self, "سند با موفقیت ثبت شد")
-
-    def _edit(self):
-        entry_id = self._selected_id()
-        if not entry_id:
-            show_error(self, "لطفاً یک سند انتخاب کنید")
-            return
-        entry = self.journal_model.get_entry(entry_id)
-        dlg = JournalEntryDialog(self.journal_model, self.account_model, entry, parent=self)
-        if dlg.exec_():
-            self.refresh()
-            show_info(self, "سند با موفقیت ویرایش شد")
-
-    def _delete(self):
-        entry_id = self._selected_id()
-        if not entry_id:
-            show_error(self, "لطفاً یک سند انتخاب کنید")
-            return
-        if not show_confirm(self, "آیا از حذف این سند اطمینان دارید؟"):
-            return
-        self.journal_model.delete(entry_id)
-        self.refresh()
-        show_info(self, "سند حذف شد")
-
-    def _print_receipt(self):
-        entry_id = self._selected_id()
-        if not entry_id:
-            show_error(self, "لطفاً یک سند انتخاب کنید")
-            return
-        entry = self.journal_model.get_entry(entry_id)
-        if not entry:
-            show_error(self, "سند یافت نشد")
-            return
-        default_name = f"رسید سند {entry['entry_number']}.pdf"
-        path, _ = QFileDialog.getSaveFileName(self, "چاپ رسید", default_name, "PDF (*.pdf)")
-        if not path:
-            return
-        try:
-            export_receipt_pdf(path, entry)
-            show_info(self, f"رسید با موفقیت ذخیره شد:\n{path}")
-        except Exception as e:
-            show_error(self, f"خطا در ساخت رسید: {e}")
