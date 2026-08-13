@@ -103,19 +103,29 @@ class JalaliDateEdit(QWidget):
         self.year_edit.setMaxLength(4)
         self.year_edit.setValidator(QIntValidator(1300, 1500))
         self.year_edit.setPlaceholderText("سال")
-        self.year_edit.setFixedWidth(55)
+        self.year_edit.setFixedWidth(70)
+        self.year_edit.setFixedHeight(36)
+        self.year_edit.setAlignment(Qt.AlignCenter)
+        # reduced padding so two-digit month/day are not clipped
+        self.year_edit.setStyleSheet("padding: 6px 7px; border: 1px solid #E4E7EC; border-radius: 8px; background-color: #FFFFFF;")
 
         self.month_edit = QLineEdit()
         self.month_edit.setMaxLength(2)
         self.month_edit.setValidator(QIntValidator(1, 12))
         self.month_edit.setPlaceholderText("ماه")
-        self.month_edit.setFixedWidth(40)
+        self.month_edit.setFixedWidth(52)
+        self.month_edit.setFixedHeight(36)
+        self.month_edit.setAlignment(Qt.AlignCenter)
+        self.month_edit.setStyleSheet("padding: 6px 7px; border: 1px solid #E4E7EC; border-radius: 8px; background-color: #FFFFFF;")
 
         self.day_edit = QLineEdit()
         self.day_edit.setMaxLength(2)
         self.day_edit.setValidator(QIntValidator(1, 31))
         self.day_edit.setPlaceholderText("روز")
-        self.day_edit.setFixedWidth(40)
+        self.day_edit.setFixedWidth(52)
+        self.day_edit.setFixedHeight(36)
+        self.day_edit.setAlignment(Qt.AlignCenter)
+        self.day_edit.setStyleSheet("padding: 6px 7px; border: 1px solid #E4E7EC; border-radius: 8px; background-color: #FFFFFF;")
 
         layout.addWidget(self.day_edit)
         layout.addWidget(QLabel("/"))
@@ -135,9 +145,16 @@ class JalaliDateEdit(QWidget):
             return
         parts = jalali_str.replace("-", "/").split("/")
         if len(parts) == 3:
+            # ensure zero-padded display for month/day and full year visible
             self.year_edit.setText(parts[0])
-            self.month_edit.setText(str(int(parts[1])))
-            self.day_edit.setText(str(int(parts[2])))
+            try:
+                self.month_edit.setText(f"{int(parts[1]):02d}")
+            except Exception:
+                self.month_edit.setText(parts[1])
+            try:
+                self.day_edit.setText(f"{int(parts[2]):02d}")
+            except Exception:
+                self.day_edit.setText(parts[2])
 
     def get_date(self):
         y = self.year_edit.text().strip()

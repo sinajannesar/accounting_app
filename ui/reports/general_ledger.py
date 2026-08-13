@@ -1,16 +1,16 @@
-"""گزارش صورت سود و زیان"""
+"""گزارش دفتر کل"""
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
-    QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QGroupBox,
+    QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QSplitter, QFrame,
 )
 
-from ui.widgets import show_error, format_amount, DateRangeWidget
+from ui.widgets import show_error, format_amount, DateRangeWidget, apply_shadow
 from utils.export import export_to_excel, export_to_pdf
 
 
-class IncomeStatementWidget(QWidget):
+class GeneralLedgerWidget(QWidget):
     def __init__(self, report_model, parent=None):
         super().__init__(parent)
         self.report_model = report_model
@@ -20,12 +20,22 @@ class IncomeStatementWidget(QWidget):
     def _build_ui(self):
         layout = QVBoxLayout(self)
         filter_layout = QHBoxLayout()
+        # wrap content in a content card for consistent look
+        content_card = QFrame()
+        content_card.setObjectName("contentCard")
+        content_layout = QVBoxLayout(content_card)
+        content_layout.setContentsMargins(8, 8, 8, 8)
+        content_layout.setSpacing(10)
+        try:
+            apply_shadow(content_card)
+        except Exception:
+            pass
         self.date_range = DateRangeWidget()
         filter_layout.addWidget(self.date_range)
         run_btn = QPushButton("🔍 نمایش گزارش")
         run_btn.clicked.connect(self.refresh)
         filter_layout.addWidget(run_btn)
-        layout.addLayout(filter_layout)
+        content_layout.addLayout(filter_layout)
 
         export_layout = QHBoxLayout()
         excel_btn = QPushButton("📊 خروجی Excel")
@@ -35,34 +45,59 @@ class IncomeStatementWidget(QWidget):
         export_layout.addWidget(excel_btn)
         export_layout.addWidget(pdf_btn)
         export_layout.addStretch()
-        layout.addLayout(export_layout)
+        content_layout.addLayout(export_layout)
 
-        income_group = QGroupBox("درآمدها")
-        income_layout = QVBoxLayout(income_group)
-        self.income_table = QTableWidget()
-        self.income_table.setColumnCount(3)
-        self.income_table.setHorizontalHeaderLabels(["کد", "نام", "مبلغ"])
-        self.income_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        income_layout.addWidget(self.income_table)
-        self.total_income_label = QLabel("جمع درآمد: 0")
-        income_layout.addWidget(self.total_income_label)
-        layout.addWidget(income_group)
+        splitter = QSplitter(Qt.Vertical)
 
-        expense_group = QGroupBox("هزینه‌ها")
-        expense_layout = QVBoxLayout(expense_group)
-        self.expense_table = QTableWidget()
-        self.expense_table.setColumnCount(3)
-        self.expense_table.setHorizontalHeaderLabels(["کد", "نام", "مبلغ"])
-        self.expense_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        expense_layout.addWidget(self.expense_table)
-        self.total_expense_label = QLabel("جمع هزینه: 0")
-        expense_layout.addWidget(self.total_expense_label)
-        layout.addWidget(expense_group)
+        self.accounts_table = QTableWidget()
+        self.accounts_table.setColumnCount(5)
+        self.accounts_table.setHorizontalHeaderLabels(
+            ["کد", "نام حساب", "جمع بدهکار", "جمع بستانکار", "مانده"]
+        )
+        header = self.accounts_table.horizontalHeader()
+        # Prefer specific sizing: code narrow, name wide, amounts medium
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        self.accounts_table.setWordWrap(True)
+        self.accounts_table.setTextElideMode(Qt.ElideNone)
+        self.accounts_table.setAlternatingRowColors(True)
+        self.accounts_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.accounts_table.itemSelectionChanged.connect(self._on_account_selected)
+        splitter.addWidget(self.accounts_table)
 
-        self.net_label = QLabel("")
-        self.net_label.setObjectName("titleLabel")
-        layout.addWidget(self.net_label)
-        self._report_data = None
+        detail_container = QWidget()
+        detail_layout = QVBoxLayout(detail_container)
+        detail_layout.setContentsMargins(0, 0, 0, 0)
+        self.detail_label = QLabel("")
+        self.detail_label.setObjectName("sectionLabel")
+        detail_layout.addWidget(self.detail_label)
+        self.movements_table = QTableWidget()
+        self.movements_table.setColumnCount(6)
+        self.movements_table.setHorizontalHeaderLabels(
+            ["تاریخ", "شماره سند", "شرح", "بدهکار", "بستانکار", "مانده"]
+        )
+        mheader = self.movements_table.horizontalHeader()
+        # prioritize description column
+        mheader.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        mheader.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        mheader.setSectionResizeMode(2, QHeaderView.Stretch)
+        mheader.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        mheader.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        mheader.setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        self.movements_table.setWordWrap(True)
+        self.movements_table.setTextElideMode(Qt.ElideNone)
+        self.movements_table.setAlternatingRowColors(True)
+        self.movements_table.setMinimumHeight(220)
+        detail_layout.addWidget(self.movements_table)
+        splitter.addWidget(detail_container)
+
+        content_layout.addWidget(splitter)
+        layout.addWidget(content_card)
+
+        self._report_data = []
 
     def refresh(self):
         try:
@@ -70,48 +105,56 @@ class IncomeStatementWidget(QWidget):
         except ValueError as e:
             show_error(self, str(e))
             return
-        data = self.report_model.income_statement(d_from, d_to)
+
+        data = self.report_model.general_ledger(d_from, d_to)
         self._report_data = data
 
-        self.income_table.setRowCount(len(data["income_items"]))
-        for row, item in enumerate(data["income_items"]):
-            self.income_table.setItem(row, 0, QTableWidgetItem(item["code"]))
-            self.income_table.setItem(row, 1, QTableWidgetItem(item["name"]))
-            self.income_table.setItem(row, 2, QTableWidgetItem(format_amount(item["amount"])))
-        self.total_income_label.setText(f"جمع درآمد: {format_amount(data['total_income'])} ریال")
+        self.accounts_table.setRowCount(len(data))
+        for row, acc in enumerate(data):
+            self.accounts_table.setItem(row, 0, QTableWidgetItem(acc["code"]))
+            self.accounts_table.setItem(row, 1, QTableWidgetItem(acc["name"]))
+            self.accounts_table.setItem(row, 2, QTableWidgetItem(format_amount(acc["total_debit"])))
+            self.accounts_table.setItem(row, 3, QTableWidgetItem(format_amount(acc["total_credit"])))
+            self.accounts_table.setItem(row, 4, QTableWidgetItem(format_amount(acc["balance"])))
+        # ensure wrapped names are fully visible
+        self.accounts_table.resizeRowsToContents()
 
-        self.expense_table.setRowCount(len(data["expense_items"]))
-        for row, item in enumerate(data["expense_items"]):
-            self.expense_table.setItem(row, 0, QTableWidgetItem(item["code"]))
-            self.expense_table.setItem(row, 1, QTableWidgetItem(item["name"]))
-            self.expense_table.setItem(row, 2, QTableWidgetItem(format_amount(item["amount"])))
-        self.total_expense_label.setText(f"جمع هزینه: {format_amount(data['total_expense'])} ریال")
+        self.movements_table.setRowCount(0)
+        self.detail_label.setText("")
 
-        net = data["net_profit"]
-        if net >= 0:
-            self.net_label.setText(f"سود خالص: {format_amount(net)} ریال")
-            self.net_label.setStyleSheet("color: #27ae60; font-size: 14pt; font-weight: bold;")
-        else:
-            self.net_label.setText(f"زیان خالص: {format_amount(abs(net))} ریال")
-            self.net_label.setStyleSheet("color: #e74c3c; font-size: 14pt; font-weight: bold;")
+    def _on_account_selected(self):
+        rows = self.accounts_table.selectionModel().selectedRows()
+        if not rows or not self._report_data:
+            return
+        index = rows[0].row()
+        acc = self._report_data[index]
+        self.detail_label.setText(f"گردش حساب: {acc['code']} - {acc['name']}")
+
+        movements = acc["movements"]
+        self.movements_table.setRowCount(len(movements))
+        balance = 0
+        for row, m in enumerate(movements):
+            balance += m["debit"] - m["credit"]
+            self.movements_table.setItem(row, 0, QTableWidgetItem(m["entry_date"]))
+            self.movements_table.setItem(row, 1, QTableWidgetItem(str(m["entry_number"])))
+            desc = m.get("line_description") or m.get("entry_description") or ""
+            self.movements_table.setItem(row, 2, QTableWidgetItem(desc))
+            self.movements_table.setItem(row, 3, QTableWidgetItem(format_amount(m["debit"])))
+            self.movements_table.setItem(row, 4, QTableWidgetItem(format_amount(m["credit"])))
+            self.movements_table.setItem(row, 5, QTableWidgetItem(format_amount(balance)))
+        # ensure movement descriptions are fully visible
+        self.movements_table.resizeRowsToContents()
 
     def _export(self, fmt):
         if not self._report_data:
             show_error(self, "ابتدا گزارش را نمایش دهید")
             return
-        data = self._report_data
-        title = "صورت سود و زیان"
-        headers = ["کد", "نام", "مبلغ"]
-        rows = [["--- درآمدها ---", "", ""]]
-        for item in data["income_items"]:
-            rows.append([item["code"], item["name"], item["amount"]])
-        rows.append(["", "جمع درآمد", data["total_income"]])
-        rows.append(["--- هزینه‌ها ---", "", ""])
-        for item in data["expense_items"]:
-            rows.append([item["code"], item["name"], item["amount"]])
-        rows.append(["", "جمع هزینه", data["total_expense"]])
-        net_label = "سود خالص" if data["net_profit"] >= 0 else "زیان خالص"
-        rows.append(["", net_label, abs(data["net_profit"])])
+        title = "دفتر کل"
+        headers = ["کد", "نام حساب", "جمع بدهکار", "جمع بستانکار", "مانده"]
+        rows = [
+            [acc["code"], acc["name"], acc["total_debit"], acc["total_credit"], acc["balance"]]
+            for acc in self._report_data
+        ]
 
         if fmt == "excel":
             path, _ = QFileDialog.getSaveFileName(self, "ذخیره Excel", "", "Excel (*.xlsx)")
@@ -121,6 +164,6 @@ class IncomeStatementWidget(QWidget):
             path, _ = QFileDialog.getSaveFileName(self, "ذخیره PDF", "", "PDF (*.pdf)")
             if path:
                 export_to_pdf(path, title, headers, [
-                    [r[0], r[1], format_amount(r[2]) if isinstance(r[2], (int, float)) else r[2]]
+                    [r[0], r[1], format_amount(r[2]), format_amount(r[3]), format_amount(r[4])]
                     for r in rows
                 ])

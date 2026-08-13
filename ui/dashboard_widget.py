@@ -1,3 +1,4 @@
+# ui/dashboard_widget.py — FULL FILE, replace entirely
 """تب داشبورد — خلاصه وضعیت مالی"""
 
 from PyQt5.QtCore import Qt, QRectF
@@ -6,32 +7,65 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QGridLayout,
 )
 
-from ui.widgets import format_amount
+from ui.widgets import format_amount, apply_shadow
+from ui.styles import (
+    COLOR_CARD, COLOR_BORDER, COLOR_BORDER_STRONG, COLOR_TEXT, COLOR_TEXT_MUTED,
+    COLOR_SUCCESS, COLOR_DANGER, COLOR_PRIMARY, COLOR_INFO,
+    RADIUS_MD, RADIUS_SM,
+)
 from utils.jalali import last_n_months, current_jalali_year_month, PERSIAN_MONTH_NAMES
 
 
 class MetricCard(QFrame):
-    def __init__(self, title, color="#2c3e50", parent=None):
+    """کارت شاخص با آیکون، برجستگی (سایه) و رنگ معنایی برای اسکن سریع."""
+
+    def __init__(self, title, color=COLOR_TEXT, icon="", parent=None):
         super().__init__(parent)
         self.setObjectName("metricCard")
+        # expose a 'variant' property for styling and make cards larger
+        if color != COLOR_TEXT:
+            # mark as accented card
+            self.setProperty("variant", "accent")
+        self.setMinimumHeight(120)
+        # if a semantic color is provided, style the card with that color for emphasis
+        if color != COLOR_TEXT:
+            self.setStyleSheet(f"QFrame#metricCard {{ background: {color}; border: none; color: white; border-radius: {RADIUS_MD}px; }}")
         self.setStyleSheet(f"""
             QFrame#metricCard {{
-                background-color: white;
-                border: 1px solid #dee2e6;
-                border-radius: 8px;
-                border-top: 4px solid {color};
+                background-color: {COLOR_CARD};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: {RADIUS_MD}px;
             }}
         """)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 12, 14, 12)
+        apply_shadow(self, blur=20, y_offset=3, alpha=22)
 
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(18, 16, 18, 16)
+        outer.setSpacing(8)
+
+        header = QHBoxLayout()
+        header.setSpacing(8)
+        if icon:
+            icon_label = QLabel(icon)
+            icon_label.setProperty("role", "cardIcon")
+            # let the stylesheet control the visual; set a minimal inline fallback
+            icon_label.setStyleSheet(f"border: none; font-size: 13pt; padding: 6px;")
+            header.addWidget(icon_label, 0)
         self.title_label = QLabel(title)
-        self.title_label.setStyleSheet("color: #7f8c8d; font-size: 10pt; border: none;")
-        layout.addWidget(self.title_label)
+        # title uses muted text on neutral cards, white on colored cards
+        title_color = "white" if color != COLOR_TEXT else COLOR_TEXT_MUTED
+        self.title_label.setStyleSheet(
+            f"color: {title_color}; font-size: 10pt; font-weight: 700; border: none;"
+        )
+        header.addWidget(self.title_label, 1)
+        outer.addLayout(header)
 
         self.value_label = QLabel("0")
-        self.value_label.setStyleSheet(f"color: {color}; font-size: 15pt; font-weight: bold; border: none;")
-        layout.addWidget(self.value_label)
+        value_color = "white" if color != COLOR_TEXT else color
+        self.value_label.setStyleSheet(
+            f"color: {value_color}; font-size: 18pt; font-weight: 900; border: none; padding-top: 2px;"
+        )
+        outer.addWidget(self.value_label)
 
     def set_value(self, text):
         self.value_label.setText(text)
@@ -52,13 +86,16 @@ class MonthlyBarChart(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.fillRect(self.rect(), QColor("#ffffff"))
+        painter.fillRect(self.rect(), QColor(COLOR_CARD))
 
         if not self.data:
+            painter.setPen(QPen(QColor(COLOR_TEXT_MUTED)))
+            painter.setFont(QFont("Vazirmatn", 10))
+            painter.drawText(self.rect(), Qt.AlignCenter, "داده‌ای برای نمایش وجود ندارد")
             painter.end()
             return
 
-        margin_left = 70
+        margin_left = 74
         margin_right = 20
         margin_top = 20
         margin_bottom = 45
@@ -69,25 +106,23 @@ class MonthlyBarChart(QWidget):
         if max_val <= 0:
             max_val = 1
 
-        # محورها
-        axis_pen = QPen(QColor("#bdc3c7"))
-        painter.setPen(axis_pen)
-        painter.drawLine(margin_left, margin_top, margin_left, margin_top + h)
-        painter.drawLine(margin_left, margin_top + h, margin_left + w, margin_top + h)
-
         # خطوط راهنما و برچسب محور عمودی
-        painter.setFont(QFont("Tahoma", 8))
+        painter.setFont(QFont("Vazirmatn", 8))
         for i in range(5):
             y = margin_top + h - (h * i / 4)
             val = max_val * i / 4
-            painter.setPen(QPen(QColor("#ecf0f1")))
+            painter.setPen(QPen(QColor(COLOR_BORDER)))
             painter.drawLine(margin_left, int(y), margin_left + w, int(y))
-            painter.setPen(QPen(QColor("#7f8c8d")))
-            painter.drawText(QRectF(0, y - 8, margin_left - 8, 16), Qt.AlignRight | Qt.AlignVCenter, format_amount(val))
+            painter.setPen(QPen(QColor(COLOR_TEXT_MUTED)))
+            painter.drawText(QRectF(0, y - 8, margin_left - 10, 16), Qt.AlignRight | Qt.AlignVCenter, format_amount(val))
+
+        # محور پایه پررنگ‌تر از خطوط راهنما
+        painter.setPen(QPen(QColor(COLOR_BORDER_STRONG), 1.2))
+        painter.drawLine(margin_left, margin_top + h, margin_left + w, margin_top + h)
 
         n = len(self.data)
         group_width = w / n
-        bar_width = min(group_width * 0.28, 26)
+        bar_width = min(group_width * 0.26, 24)
 
         for idx, d in enumerate(self.data):
             group_center = margin_left + group_width * idx + group_width / 2
@@ -98,19 +133,19 @@ class MonthlyBarChart(QWidget):
             expense_x = group_center + 3
 
             painter.setPen(Qt.NoPen)
-            painter.setBrush(QColor("#27ae60"))
+            painter.setBrush(QColor(COLOR_SUCCESS))
             painter.drawRoundedRect(
-                QRectF(income_x, margin_top + h - income_h, bar_width, income_h), 3, 3
+                QRectF(income_x, margin_top + h - income_h, bar_width, max(income_h, 0)), 4, 4
             )
-            painter.setBrush(QColor("#e74c3c"))
+            painter.setBrush(QColor(COLOR_DANGER))
             painter.drawRoundedRect(
-                QRectF(expense_x, margin_top + h - expense_h, bar_width, expense_h), 3, 3
+                QRectF(expense_x, margin_top + h - expense_h, bar_width, max(expense_h, 0)), 4, 4
             )
 
-            painter.setPen(QPen(QColor("#2c3e50")))
-            painter.setFont(QFont("Tahoma", 9))
+            painter.setPen(QPen(QColor(COLOR_TEXT)))
+            painter.setFont(QFont("Vazirmatn", 9))
             painter.drawText(
-                QRectF(group_center - group_width / 2, margin_top + h + 6, group_width, 20),
+                QRectF(group_center - group_width / 2, margin_top + h + 8, group_width, 20),
                 Qt.AlignCenter, d["label"],
             )
 
@@ -129,37 +164,80 @@ class DashboardWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(14)
 
+        header_row = QHBoxLayout()
+        title_box = QVBoxLayout()
+        title_box.setSpacing(2)
         title = QLabel("داشبورد خلاصه وضعیت مالی")
         title.setObjectName("titleLabel")
-        layout.addWidget(title)
+        title_box.addWidget(title)
+        subtitle = QLabel("نمای کلی ماه جاری — درآمد، هزینه، سود و موجودی صندوق")
+        subtitle.setObjectName("subtitleLabel")
+        title_box.addWidget(subtitle)
+        header_row.addLayout(title_box)
+        header_row.addStretch()
+
+        refresh_btn = QPushButton("🔄  بروزرسانی")
+        refresh_btn.setObjectName("flatBtn")
+        refresh_btn.clicked.connect(self.refresh)
+        header_row.addWidget(refresh_btn)
+        layout.addLayout(header_row)
 
         cards_layout = QGridLayout()
-        self.income_card = MetricCard("درآمد این ماه", color="#27ae60")
-        self.expense_card = MetricCard("هزینه این ماه", color="#e74c3c")
-        self.profit_card = MetricCard("سود/زیان این ماه", color="#2980b9")
-        self.cash_card = MetricCard("موجودی صندوق", color="#8e44ad")
+        cards_layout.setSpacing(14)
+        self.income_card = MetricCard("درآمد این ماه", color=COLOR_SUCCESS, icon="📈")
+        self.expense_card = MetricCard("هزینه این ماه", color=COLOR_DANGER, icon="📉")
+        self.profit_card = MetricCard("سود/زیان این ماه", color=COLOR_PRIMARY, icon="💼")
+        self.cash_card = MetricCard("موجودی صندوق", color=COLOR_INFO, icon="💵")
         cards_layout.addWidget(self.income_card, 0, 0)
         cards_layout.addWidget(self.expense_card, 0, 1)
         cards_layout.addWidget(self.profit_card, 0, 2)
         cards_layout.addWidget(self.cash_card, 0, 3)
         layout.addLayout(cards_layout)
 
-        chart_label = QLabel("روند ۶ ماه اخیر (درآمد سبز، هزینه قرمز)")
-        chart_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
-        layout.addWidget(chart_label)
+        # کارت نمودار — با سایه، مشابه بقیه کارت‌ها تا رابط یکدست بماند
+        chart_card = QFrame()
+        chart_card.setObjectName("chartCard")
+        chart_card.setStyleSheet(f"""
+            QFrame#chartCard {{
+                background-color: {COLOR_CARD};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: {RADIUS_MD}px;
+            }}
+        """)
+        apply_shadow(chart_card, blur=20, y_offset=3, alpha=18)
+        chart_layout = QVBoxLayout(chart_card)
+        chart_layout.setContentsMargins(18, 16, 18, 12)
+        chart_layout.setSpacing(6)
+
+        chart_header = QHBoxLayout()
+        chart_title = QLabel("روند ۶ ماه اخیر")
+        chart_title.setObjectName("sectionLabel")
+        chart_header.addWidget(chart_title)
+        chart_header.addStretch()
+        chart_header.addWidget(self._legend_dot(COLOR_SUCCESS, "درآمد"))
+        chart_header.addWidget(self._legend_dot(COLOR_DANGER, "هزینه"))
+        chart_layout.addLayout(chart_header)
 
         self.chart = MonthlyBarChart()
-        layout.addWidget(self.chart)
+        chart_layout.addWidget(self.chart)
+        layout.addWidget(chart_card, 1)
 
-        btn_layout = QHBoxLayout()
-        refresh_btn = QPushButton("🔄 بروزرسانی")
-        refresh_btn.clicked.connect(self.refresh)
-        btn_layout.addWidget(refresh_btn)
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
-
-        layout.addStretch()
+    def _legend_dot(self, color, text):
+        wrap = QWidget()
+        row = QHBoxLayout(wrap)
+        row.setContentsMargins(12, 0, 0, 0)
+        row.setSpacing(6)
+        dot = QLabel()
+        dot.setFixedSize(10, 10)
+        dot.setStyleSheet(f"background-color: {color}; border-radius: 5px;")
+        row.addWidget(dot)
+        label = QLabel(text)
+        label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 9pt; border: none;")
+        row.addWidget(label)
+        return wrap
 
     def _cash_account_id(self):
         cash_id = self.db.get_setting("cash_account_id")

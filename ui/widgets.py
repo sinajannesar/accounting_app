@@ -1,11 +1,26 @@
+# ui/widgets.py — FULL FILE, replace entirely
 """ویجت‌های مشترک"""
 
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QGroupBox, QVBoxLayout,
-    QMessageBox, QFrame, QDoubleSpinBox,
+    QMessageBox, QFrame, QDoubleSpinBox, QGraphicsDropShadowEffect,
 )
 from utils.jalali import JalaliDateEdit
 from utils.num2words_fa import amount_to_words_rial
+from ui.styles import COLOR_TEXT_MUTED
+
+
+def apply_shadow(widget, blur=28, y_offset=6, alpha=40):
+    """سایه‌ی ملایم برای کارت‌ها. QSS از box-shadow پشتیبانی نمی‌کند،
+    بنابراین سایه با QGraphicsDropShadowEffect در پایتون اعمال می‌شود."""
+    effect = QGraphicsDropShadowEffect(widget)
+    effect.setBlurRadius(blur)
+    effect.setOffset(0, y_offset)
+    # slightly darker, more visible shadow for modern UI
+    effect.setColor(QColor(6, 30, 80, alpha))
+    widget.setGraphicsEffect(effect)
+    return effect
 
 
 class DateRangeWidget(QGroupBox):
@@ -65,7 +80,9 @@ class AmountInput(QWidget):
 
         self.words_label = QLabel("")
         self.words_label.setWordWrap(True)
-        self.words_label.setStyleSheet("color: #666; font-size: 11px; padding-right: 2px;")
+        self.words_label.setStyleSheet(
+            f"color: {COLOR_TEXT_MUTED}; font-size: 9pt; padding: 2px 4px 0 4px; border: none;"
+        )
         layout.addWidget(self.words_label)
 
         self.spin.valueChanged.connect(self._update_words)

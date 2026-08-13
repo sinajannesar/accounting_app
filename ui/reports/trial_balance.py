@@ -3,10 +3,10 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
-    QTableWidgetItem, QHeaderView, QFileDialog, QCheckBox,
+    QTableWidgetItem, QHeaderView, QFileDialog, QCheckBox, QFrame,
 )
 
-from ui.widgets import show_error, format_amount, DateRangeWidget
+from ui.widgets import show_error, format_amount, DateRangeWidget, apply_shadow
 from utils.export import export_to_excel, export_to_pdf
 
 
@@ -19,6 +19,16 @@ class TrialBalanceWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
+        # content card to match app visual
+        content_card = QFrame()
+        content_card.setObjectName("contentCard")
+        content_layout = QVBoxLayout(content_card)
+        content_layout.setContentsMargins(8, 8, 8, 8)
+        content_layout.setSpacing(10)
+        try:
+            apply_shadow(content_card)
+        except Exception:
+            pass
         filter_layout = QHBoxLayout()
         self.date_range = DateRangeWidget()
         filter_layout.addWidget(self.date_range)
@@ -27,7 +37,7 @@ class TrialBalanceWidget(QWidget):
         run_btn = QPushButton("🔍 نمایش گزارش")
         run_btn.clicked.connect(self.refresh)
         filter_layout.addWidget(run_btn)
-        layout.addLayout(filter_layout)
+        content_layout.addLayout(filter_layout)
 
         export_layout = QHBoxLayout()
         excel_btn = QPushButton("📊 خروجی Excel")
@@ -37,12 +47,17 @@ class TrialBalanceWidget(QWidget):
         export_layout.addWidget(excel_btn)
         export_layout.addWidget(pdf_btn)
         export_layout.addStretch()
-        layout.addLayout(export_layout)
+        content_layout.addLayout(export_layout)
 
         self.table = QTableWidget()
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        # Do not set per-section resize modes here because column count
+        # is not known yet; resize modes are applied after columns are set
+        # in `refresh()` where we call `setSectionResizeMode` safely.
         self.table.setAlternatingRowColors(True)
-        layout.addWidget(self.table)
+        self.table.setWordWrap(True)
+        self.table.setTextElideMode(Qt.ElideNone)
+        content_layout.addWidget(self.table)
+        layout.addWidget(content_card)
         self._report_data = None
 
     def refresh(self):
@@ -92,6 +107,17 @@ class TrialBalanceWidget(QWidget):
             self.table.setItem(total_row, 2, QTableWidgetItem(format_amount(data["total_debit"])))
             self.table.setItem(total_row, 3, QTableWidgetItem(format_amount(data["total_credit"])))
             self.table.setItem(total_row, 4, QTableWidgetItem(""))
+        # After columns are set, adjust resize modes: code narrow, name stretch, numbers resize to contents
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        for col in range(2, self.table.columnCount()):
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        # ensure wrapping and no elide
+        self.table.setWordWrap(True)
+        self.table.setTextElideMode(Qt.ElideNone)
+        # resize rows so multi-line names are shown
+        self.table.resizeRowsToContents()
 
     def _export(self, fmt):
         if not self._report_data:

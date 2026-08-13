@@ -15,10 +15,11 @@ from utils.export import export_receipt_pdf
 
 
 class CashTransactionDialog(QDialog):
-    def __init__(self, journal_model, account_model, cash_account_id, parent=None):
+    def __init__(self, journal_model, account_model, cash_account_id, is_income=None, parent=None):
         super().__init__(parent)
         self.journal_model = journal_model
         self.cash_account_id = cash_account_id
+        self.is_income = is_income
         self.setWindowTitle("تراکنش صندوق")
         self.setMinimumWidth(400)
         self.setLayoutDirection(Qt.RightToLeft)
@@ -29,6 +30,8 @@ class CashTransactionDialog(QDialog):
         self.type_combo = QComboBox()
         self.type_combo.addItem("ورود وجه (دریافت)", True)
         self.type_combo.addItem("خروج وجه (پرداخت)", False)
+        if self.is_income is not None:
+            self.type_combo.setCurrentIndex(0 if self.is_income else 1)
         self.date_edit = JalaliDateEdit()
         self.date_edit.set_date(today_jalali())
         self.amount_spin = AmountInput(minimum=1)
@@ -86,11 +89,7 @@ class CashWidget(QWidget):
         cash_id = self.db.get_setting("cash_account_id")
         if cash_id:
             return int(cash_id)
-        accounts = self.account_model.get_postable_accounts()
-        for acc in accounts:
-            if "صندوق" in acc["name"]:
-                return acc["id"]
-        return accounts[0]["id"] if accounts else None
+        return None
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -110,10 +109,10 @@ class CashWidget(QWidget):
         btn_layout = QHBoxLayout()
         in_btn = QPushButton("⬆ ورود وجه")
         in_btn.setObjectName("successBtn")
-        in_btn.clicked.connect(self._add_transaction)
+        in_btn.clicked.connect(lambda: self._add_transaction(True))
         out_btn = QPushButton("⬇ خروج وجه")
         out_btn.setObjectName("dangerBtn")
-        out_btn.clicked.connect(self._add_transaction)
+        out_btn.clicked.connect(lambda: self._add_transaction(False))
         refresh_btn = QPushButton("🔄 بروزرسانی")
         refresh_btn.clicked.connect(self.refresh)
         print_btn = QPushButton("🖨 چاپ رسید")
@@ -178,12 +177,12 @@ class CashWidget(QWidget):
         except Exception as e:
             show_error(self, f"خطا در ساخت رسید: {e}")
 
-    def _add_transaction(self):
+    def _add_transaction(self, is_income=None):
         cash_id = self._get_cash_account_id()
         if not cash_id:
             show_error(self, "حساب صندوق تعریف نشده است")
             return
-        dlg = CashTransactionDialog(self.journal_model, self.account_model, cash_id, parent=self)
+        dlg = CashTransactionDialog(self.journal_model, self.account_model, cash_id, is_income, parent=self)
         if dlg.exec_():
             self.refresh()
             show_info(self, "تراکنش با موفقیت ثبت شد")

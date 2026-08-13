@@ -1,3 +1,4 @@
+# ui/journal_widget.py — FULL FILE, replace entirely
 """ماژول ثبت اسناد حسابداری"""
 
 from PyQt5.QtCore import Qt
@@ -11,6 +12,7 @@ from PyQt5.QtWidgets import (
 from models.journal import JournalModel
 from models.account import AccountModel
 from ui.widgets import show_error, show_info, show_confirm, format_amount, DateRangeWidget, AmountInput
+from ui.styles import COLOR_DANGER, COLOR_DANGER_LIGHT, COLOR_SUCCESS_DARK, COLOR_SUCCESS_LIGHT
 from utils.jalali import JalaliDateEdit, today_jalali
 from utils.export import export_receipt_pdf
 
@@ -29,14 +31,20 @@ class JournalLineDialog(QDialog):
 
     def _build_ui(self):
         layout = QFormLayout(self)
-        self.account_combo = QComboBox()
+        self.group_combo = QComboBox()
+        self.group_combo.addItem("همه گروه‌ها", None)
+        roots = {}
         for acc in self.accounts:
-            self.account_combo.addItem(f"{acc['code']} - {acc['name']}", acc["id"])
+            roots.setdefault(acc["account_type"], AccountModel.type_label(acc["account_type"]))
+        for key, label in roots.items():
+            self.group_combo.addItem(label, key)
+        self.account_combo = QComboBox()
         self.debit_spin = AmountInput()
         self.credit_spin = AmountInput()
         self.desc_edit = QLineEdit()
 
-        layout.addRow("حساب:", self.account_combo)
+        layout.addRow("گروه حساب:", self.group_combo)
+        layout.addRow("حساب قابل ثبت:", self.account_combo)
         layout.addRow("بدهکار:", self.debit_spin)
         layout.addRow("بستانکار:", self.credit_spin)
         layout.addRow("شرح:", self.desc_edit)
@@ -49,8 +57,24 @@ class JournalLineDialog(QDialog):
         btn_layout.addWidget(save_btn)
         btn_layout.addWidget(cancel_btn)
         layout.addRow(btn_layout)
+        self.group_combo.currentIndexChanged.connect(self._fill_accounts)
+        self._fill_accounts()
+
+    def _fill_accounts(self):
+        selected = self.account_combo.currentData()
+        group = self.group_combo.currentData()
+        self.account_combo.clear()
+        for acc in self.accounts:
+            if not group or acc["account_type"] == group:
+                self.account_combo.addItem(f"{acc['code']} — {acc['name']} ({AccountModel.level_label(acc['level'])})", acc["id"])
+        index = self.account_combo.findData(selected)
+        if index >= 0:
+            self.account_combo.setCurrentIndex(index)
 
     def _load_line(self):
+        current = next((a for a in self.accounts if a["id"] == self.line["account_id"]), None)
+        if current:
+            self.group_combo.setCurrentIndex(self.group_combo.findData(current["account_type"]))
         idx = self.account_combo.findData(self.line["account_id"])
         if idx >= 0:
             self.account_combo.setCurrentIndex(idx)
@@ -154,7 +178,8 @@ class JournalEntryDialog(QDialog):
         self._refresh_lines_table()
 
     def _refresh_lines_table(self):
-        accounts = {a["id"]: a for a in self.account_model.get_postable_accounts()}
+        # برای نمایش اسناد قدیمی، حتی حساب‌های قدیمیِ غیرقابل انتخاب نیز خوانده می‌شوند.
+        accounts = {a["id"]: a for a in self.account_model.get_all(active_only=False)}
         self.lines_table.setRowCount(len(self.lines))
         total_d = total_c = 0
         for row, line in enumerate(self.lines):
@@ -171,9 +196,15 @@ class JournalEntryDialog(QDialog):
         )
         diff = total_d - total_c
         if abs(diff) > 0.01:
-            self.totals_label.setStyleSheet("color: red; font-weight: bold;")
+            self.totals_label.setStyleSheet(
+                f"color: {COLOR_DANGER}; font-weight: 700; background-color: {COLOR_DANGER_LIGHT}; "
+                f"border-radius: 6px; padding: 6px 10px;"
+            )
         else:
-            self.totals_label.setStyleSheet("color: green; font-weight: bold;")
+            self.totals_label.setStyleSheet(
+                f"color: {COLOR_SUCCESS_DARK}; font-weight: 700; background-color: {COLOR_SUCCESS_LIGHT}; "
+                f"border-radius: 6px; padding: 6px 10px;"
+            )
 
     def _add_line(self):
         accounts = self.account_model.get_postable_accounts()
@@ -237,7 +268,7 @@ class JournalWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        tabs = QTabWidget()
+        self.tabs = QTabWidget()
 
         all_tab = QWidget()
         all_layout = QVBoxLayout(all_tab)
@@ -245,3 +276,126 @@ class JournalWidget(QWidget):
         self.date_range = DateRangeWidget()
         filter_layout.addWidget(self.date_range)
         self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("جستجو بر اساس شماره یا شرح سند...")
+        filter_layout.addWidget(self.search_edit)
+        search_btn = QPushButton("🔍 جستجو")
+        search_btn.clicked.connect(self.refresh)
+        filter_layout.addWidget(search_btn)
+        all_layout.addLayout(filter_layout)
+
+        btn_layout = QHBoxLayout()
+        add_btn = QPushButton("➕ سند جدید")
+        add_btn.setObjectName("successBtn")
+        add_btn.clicked.connect(self._add_entry)
+        edit_btn = QPushButton("✏ ویرایش سند")
+        edit_btn.clicked.connect(self._edit_entry)
+        delete_btn = QPushButton("🗑 حذف سند")
+        delete_btn.setObjectName("dangerBtn")
+        delete_btn.clicked.connect(self._delete_entry)
+        print_btn = QPushButton("🖨 چاپ رسید")
+        print_btn.clicked.connect(self._print_receipt)
+        btn_layout.addWidget(add_btn)
+        btn_layout.addWidget(edit_btn)
+        btn_layout.addWidget(delete_btn)
+        btn_layout.addWidget(print_btn)
+        btn_layout.addStretch()
+        all_layout.addLayout(btn_layout)
+
+        self.entries_table = QTableWidget()
+        self.entries_table.setColumnCount(6)
+        self.entries_table.setHorizontalHeaderLabels(
+            ["شماره سند", "تاریخ", "سررسید", "شرح", "جمع بدهکار", "جمع بستانکار"]
+        )
+        self.entries_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.entries_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.entries_table.setAlternatingRowColors(True)
+        self.entries_table.doubleClicked.connect(self._edit_entry)
+        all_layout.addWidget(self.entries_table)
+
+        self.tabs.addTab(all_tab, "همه اسناد")
+
+        due_tab = QWidget()
+        due_layout = QVBoxLayout(due_tab)
+        due_refresh_btn = QPushButton("🔄 بروزرسانی")
+        due_refresh_btn.clicked.connect(self._refresh_due)
+        due_layout.addWidget(due_refresh_btn)
+        self.due_table = QTableWidget()
+        self.due_table.setColumnCount(4)
+        self.due_table.setHorizontalHeaderLabels(["شماره سند", "تاریخ", "سررسید", "شرح"])
+        self.due_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.due_table.setAlternatingRowColors(True)
+        due_layout.addWidget(self.due_table)
+        self.tabs.addTab(due_tab, "اسناد سررسید شده")
+
+        layout.addWidget(self.tabs)
+        self._entries = []
+        self._due_entries = []
+
+    def refresh(self):
+        try:
+            d_from, d_to = self.date_range.get_range()
+        except ValueError:
+            d_from, d_to = None, None
+        search = self.search_edit.text().strip()
+        self._entries = self.journal_model.get_entries(d_from, d_to, search)
+
+        self.entries_table.setRowCount(len(self._entries))
+        for row, entry in enumerate(self._entries):
+            self.entries_table.setItem(row, 0, QTableWidgetItem(str(entry["entry_number"])))
+            self.entries_table.setItem(row, 1, QTableWidgetItem(entry["entry_date"]))
+            self.entries_table.setItem(row, 2, QTableWidgetItem(entry.get("due_date") or ""))
+            self.entries_table.setItem(row, 3, QTableWidgetItem(entry.get("description") or ""))
+            self.entries_table.setItem(row, 4, QTableWidgetItem(format_amount(entry["total_debit"])))
+            self.entries_table.setItem(row, 5, QTableWidgetItem(format_amount(entry["total_credit"])))
+
+        self._refresh_due()
+
+    def _refresh_due(self):
+        self._due_entries = self.journal_model.get_due_entries()
+        self.due_table.setRowCount(len(self._due_entries))
+        for row, entry in enumerate(self._due_entries):
+            self.due_table.setItem(row, 0, QTableWidgetItem(str(entry["entry_number"])))
+            self.due_table.setItem(row, 1, QTableWidgetItem(entry["entry_date"]))
+            self.due_table.setItem(row, 2, QTableWidgetItem(entry.get("due_date") or ""))
+            self.due_table.setItem(row, 3, QTableWidgetItem(entry.get("description") or ""))
+
+    def _selected_entry(self):
+        row = self.entries_table.currentRow()
+        if row < 0 or row >= len(self._entries):
+            return None
+        return self._entries[row]
+
+    def _add_entry(self):
+        dlg = JournalEntryDialog(self.journal_model, self.account_model, parent=self)
+        if dlg.exec_():
+            self.refresh()
+
+    def _edit_entry(self):
+        selected = self._selected_entry()
+        if not selected:
+            show_error(self, "یک سند را انتخاب کنید")
+            return
+        full_entry = self.journal_model.get_entry(selected["id"])
+        dlg = JournalEntryDialog(self.journal_model, self.account_model, entry=full_entry, parent=self)
+        if dlg.exec_():
+            self.refresh()
+
+    def _delete_entry(self):
+        selected = self._selected_entry()
+        if not selected:
+            show_error(self, "یک سند را انتخاب کنید")
+            return
+        if show_confirm(self, f"آیا از حذف سند شماره {selected['entry_number']} مطمئن هستید؟"):
+            self.journal_model.delete(selected["id"])
+            self.refresh()
+
+    def _print_receipt(self):
+        selected = self._selected_entry()
+        if not selected:
+            show_error(self, "یک سند را انتخاب کنید")
+            return
+        full_entry = self.journal_model.get_entry(selected["id"])
+        path, _ = QFileDialog.getSaveFileName(self, "ذخیره رسید", "", "PDF (*.pdf)")
+        if path:
+            export_receipt_pdf(path, full_entry)
+            show_info(self, "رسید با موفقیت ذخیره شد")

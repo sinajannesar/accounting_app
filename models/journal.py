@@ -121,6 +121,22 @@ class JournalModel:
                 raise ValueError("هر سطر فقط می‌تواند بدهکار یا بستانکار داشته باشد")
             if debit == 0 and credit == 0:
                 raise ValueError("مبلغ سطر نمی‌تواند صفر باشد")
+            account = self.db.conn.execute(
+                "SELECT id, level, is_active FROM accounts WHERE id = ?", (line.get("account_id"),)
+            ).fetchone()
+            if not account or not account["is_active"]:
+                raise ValueError("حساب انتخاب‌شده معتبر یا فعال نیست")
+            if account["level"] < 3:
+                raise ValueError("ثبت سند فقط روی حساب معین یا تفصیلی مجاز است")
+            # اسناد قدیمی که پیش از قاعده حساب برگ ثبت شده‌اند قابل ویرایش می‌مانند.
+            has_child = self.db.conn.execute(
+                "SELECT 1 FROM accounts WHERE parent_id = ? AND is_active = 1", (account["id"],)
+            ).fetchone()
+            used_before = self.db.conn.execute(
+                "SELECT 1 FROM journal_lines WHERE account_id = ?", (account["id"],)
+            ).fetchone()
+            if has_child and not used_before:
+                raise ValueError("برای ثبت سند باید حساب برگ (معین یا تفصیلی) انتخاب شود")
 
     def get_due_entries(self, as_of_date=None):
         query = """

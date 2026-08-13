@@ -40,18 +40,42 @@ class ReportModel:
         return [dict(r) for r in rows]
 
     def subsidiary_ledger(self, account_id, date_from=None, date_to=None):
+        """سازگاری با نام قدیمی متد؛ دفتر حساب انتخاب‌شده را برمی‌گرداند."""
+        return self.account_ledger(account_id, date_from, date_to)
+
+    def account_ledger(self, account_id, date_from=None, date_to=None):
         account = self.account_model.get_by_id(account_id)
         if not account:
             return None, []
         account_ids = self.account_model.get_children_ids(account_id)
+        opening = self._opening_balance(account_ids, date_from)
         movements = self._get_account_movements(account_ids, date_from, date_to)
 
-        balance = 0
+        balance = opening
         running = []
         for m in movements:
             balance += m["debit"] - m["credit"]
             running.append({**m, "balance": balance})
         return account, running
+
+    def _opening_balance(self, account_ids, date_from):
+        if not date_from or not account_ids:
+            return 0
+        placeholders = ",".join("?" * len(account_ids))
+        row = self.db.conn.execute(
+            f"""SELECT COALESCE(SUM(jl.debit), 0) - COALESCE(SUM(jl.credit), 0) AS balance
+                FROM journal_lines jl JOIN journal_entries je ON je.id = jl.journal_entry_id
+                WHERE jl.account_id IN ({placeholders}) AND je.entry_date < ?""",
+            list(account_ids) + [date_from],
+        ).fetchone()
+        return row["balance"] or 0
+
+    def ledger_accounts(self, level):
+        """حساب‌های سطح انتخاب‌شده برای انتخاب دفتر معین/تفصیلی."""
+        rows = self.db.conn.execute(
+            "SELECT * FROM accounts WHERE level = ? ORDER BY code", (level,)
+        ).fetchall()
+        return [dict(row) for row in rows]
 
     def general_ledger(self, date_from=None, date_to=None):
         accounts = self.db.conn.execute(
@@ -76,17 +100,14 @@ class ReportModel:
         return result
 
     def trial_balance(self, date_from=None, date_to=None, eight_column=False):
-        accounts = self.db.conn.execute(
-            "SELECT * FROM accounts WHERE level >= 3 AND is_active = 1 ORDER BY code"
-        ).fetchall()
+        accounts = self._reporting_accounts()
         rows = []
         total_debit = total_credit = 0
         total_debit_balance = total_credit_balance = 0
 
         for acc in accounts:
             acc_dict = dict(acc)
-            child_ids = self.account_model.get_children_ids(acc["id"])
-            movements = self._get_account_movements(child_ids, date_from, date_to)
+            movements = self._get_account_movements([acc["id"]], date_from, date_to)
             period_debit = sum(m["debit"] for m in movements)
             period_credit = sum(m["credit"] for m in movements)
             balance = period_debit - period_credit
@@ -119,19 +140,15 @@ class ReportModel:
         }
 
     def income_statement(self, date_from=None, date_to=None):
-        income_accounts = self.db.conn.execute(
-            "SELECT * FROM accounts WHERE account_type = 'income' AND level >= 3 AND is_active = 1 ORDER BY code"
-        ).fetchall()
-        expense_accounts = self.db.conn.execute(
-            "SELECT * FROM accounts WHERE account_type = 'expense' AND level >= 3 AND is_active = 1 ORDER BY code"
-        ).fetchall()
+        reporting_accounts = self._reporting_accounts()
+        income_accounts = [a for a in reporting_accounts if a["account_type"] == "income"]
+        expense_accounts = [a for a in reporting_accounts if a["account_type"] == "expense"]
 
         def calc_total(accounts):
             items = []
             grand = 0
             for acc in accounts:
-                child_ids = self.account_model.get_children_ids(acc["id"])
-                movements = self._get_account_movements(child_ids, date_from, date_to)
+                movements = self._get_account_movements([acc["id"]], date_from, date_to)
                 total = sum(m["credit"] - m["debit"] for m in movements)
                 if total != 0:
                     items.append({**dict(acc), "amount": total})
@@ -153,3 +170,16 @@ class ReportModel:
             "total_expense": total_expense,
             "net_profit": net_profit,
         }
+
+    def _reporting_accounts(self):
+        """برگ‌ها، به‌علاوه حساب‌های قدیمی دارای گردش مستقیم؛ بدون دوباره‌شماری."""
+        rows = self.db.conn.execute("""
+            SELECT a.* FROM accounts a
+            WHERE a.level >= 3
+              AND (
+                NOT EXISTS (SELECT 1 FROM accounts c WHERE c.parent_id = a.id AND c.is_active = 1)
+                OR EXISTS (SELECT 1 FROM journal_lines jl WHERE jl.account_id = a.id)
+              )
+            ORDER BY a.code
+        """).fetchall()
+        return [dict(row) for row in rows]

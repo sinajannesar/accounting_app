@@ -3,10 +3,10 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
-    QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QGroupBox,
+    QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QGroupBox, QFrame,
 )
 
-from ui.widgets import show_error, format_amount, DateRangeWidget
+from ui.widgets import show_error, format_amount, DateRangeWidget, apply_shadow
 from utils.export import export_to_excel, export_to_pdf
 
 
@@ -19,13 +19,23 @@ class IncomeStatementWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
+        # content card wrapper
+        content_card = QFrame()
+        content_card.setObjectName("contentCard")
+        content_layout = QVBoxLayout(content_card)
+        content_layout.setContentsMargins(8, 8, 8, 8)
+        content_layout.setSpacing(10)
+        try:
+            apply_shadow(content_card)
+        except Exception:
+            pass
         filter_layout = QHBoxLayout()
         self.date_range = DateRangeWidget()
         filter_layout.addWidget(self.date_range)
         run_btn = QPushButton("نمایش گزارش")
         run_btn.clicked.connect(self.refresh)
         filter_layout.addWidget(run_btn)
-        layout.addLayout(filter_layout)
+        content_layout.addLayout(filter_layout)
 
         export_layout = QHBoxLayout()
         excel_btn = QPushButton("خروجی Excel")
@@ -35,33 +45,44 @@ class IncomeStatementWidget(QWidget):
         export_layout.addWidget(excel_btn)
         export_layout.addWidget(pdf_btn)
         export_layout.addStretch()
-        layout.addLayout(export_layout)
+        content_layout.addLayout(export_layout)
 
         income_group = QGroupBox("درآمدها")
         income_layout = QVBoxLayout(income_group)
         self.income_table = QTableWidget()
         self.income_table.setColumnCount(3)
         self.income_table.setHorizontalHeaderLabels(["کد", "نام", "مبلغ"])
-        self.income_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        iheader = self.income_table.horizontalHeader()
+        iheader.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        iheader.setSectionResizeMode(1, QHeaderView.Stretch)
+        iheader.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.income_table.setWordWrap(True)
+        self.income_table.setTextElideMode(Qt.ElideNone)
         income_layout.addWidget(self.income_table)
         self.total_income_label = QLabel("جمع درآمد: 0")
         income_layout.addWidget(self.total_income_label)
-        layout.addWidget(income_group)
+        content_layout.addWidget(income_group)
 
         expense_group = QGroupBox("هزینه‌ها")
         expense_layout = QVBoxLayout(expense_group)
         self.expense_table = QTableWidget()
         self.expense_table.setColumnCount(3)
         self.expense_table.setHorizontalHeaderLabels(["کد", "نام", "مبلغ"])
-        self.expense_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        eheader = self.expense_table.horizontalHeader()
+        eheader.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        eheader.setSectionResizeMode(1, QHeaderView.Stretch)
+        eheader.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.expense_table.setWordWrap(True)
+        self.expense_table.setTextElideMode(Qt.ElideNone)
         expense_layout.addWidget(self.expense_table)
         self.total_expense_label = QLabel("جمع هزینه: 0")
         expense_layout.addWidget(self.total_expense_label)
-        layout.addWidget(expense_group)
+        content_layout.addWidget(expense_group)
 
         self.net_label = QLabel("")
-        self.net_label.setObjectName("titleLabel")
-        layout.addWidget(self.net_label)
+        self.net_label.setObjectName("sectionLabel")
+        content_layout.addWidget(self.net_label)
+        layout.addWidget(content_card)
         self._report_data = None
 
     def refresh(self):
@@ -78,6 +99,8 @@ class IncomeStatementWidget(QWidget):
             self.income_table.setItem(row, 0, QTableWidgetItem(item["code"]))
             self.income_table.setItem(row, 1, QTableWidgetItem(item["name"]))
             self.income_table.setItem(row, 2, QTableWidgetItem(format_amount(item["amount"])))
+        # ensure wrapped names show fully
+        self.income_table.resizeRowsToContents()
         self.total_income_label.setText(f"جمع درآمد: {format_amount(data['total_income'])} ریال")
 
         self.expense_table.setRowCount(len(data["expense_items"]))
@@ -85,6 +108,8 @@ class IncomeStatementWidget(QWidget):
             self.expense_table.setItem(row, 0, QTableWidgetItem(item["code"]))
             self.expense_table.setItem(row, 1, QTableWidgetItem(item["name"]))
             self.expense_table.setItem(row, 2, QTableWidgetItem(format_amount(item["amount"])))
+        # ensure wrapped names show fully
+        self.expense_table.resizeRowsToContents()
         self.total_expense_label.setText(f"جمع هزینه: {format_amount(data['total_expense'])} ریال")
 
         net = data["net_profit"]

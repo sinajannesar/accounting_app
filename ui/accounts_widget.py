@@ -1,239 +1,193 @@
-"""ماژول سرفصل حساب‌ها"""
+"""صفحه کدینگ حساب‌ها؛ تمام ساختار از دیتابیس خوانده می‌شود."""
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
-    QTableWidgetItem, QLineEdit, QDialog, QFormLayout, QComboBox,
-    QCheckBox, QLabel, QHeaderView, QTreeWidget, QTreeWidgetItem,
-    QSplitter,
+    QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget, QTableWidgetItem,
+    QLineEdit, QDialog, QFormLayout, QComboBox, QCheckBox, QLabel, QHeaderView,
+    QTreeWidget, QTreeWidgetItem, QSplitter, QTextEdit, QFrame,
 )
 
 from database.db_manager import ACCOUNT_TYPE_LABELS, LEVEL_LABELS
 from models.account import AccountModel
-from ui.widgets import show_error, show_info, show_confirm
+from ui.widgets import show_error, show_info, show_confirm, apply_shadow
 
 
 class AccountDialog(QDialog):
     def __init__(self, account_model, account=None, parent=None):
         super().__init__(parent)
-        self.account_model = account_model
-        self.account = account
+        self.account_model, self.account = account_model, account
         self.setWindowTitle("ویرایش حساب" if account else "حساب جدید")
-        self.setMinimumWidth(400)
-        self.setLayoutDirection(Qt.RightToLeft)
+        self.setMinimumWidth(460); self.setLayoutDirection(Qt.RightToLeft)
         self._build_ui()
-        if account:
-            self._load_account()
+        if account: self._load_account()
+        else: self._reload_parents()
 
     def _build_ui(self):
         layout = QFormLayout(self)
-        self.code_edit = QLineEdit()
+        self.code_label = QLabel("پس از انتخاب والد تولید می‌شود")
         self.name_edit = QLineEdit()
-        self.parent_combo = QComboBox()
-        self.parent_combo.addItem("— بدون والد —", None)
-        for acc in self.account_model.get_all(active_only=False):
-            if acc["level"] < 5:
-                label = f"{acc['code']} - {acc['name']} ({LEVEL_LABELS[acc['level']]})"
-                self.parent_combo.addItem(label, acc["id"])
         self.level_combo = QComboBox()
-        for lvl, label in LEVEL_LABELS.items():
-            self.level_combo.addItem(label, lvl)
-        self.type_combo = QComboBox()
-        for key, label in ACCOUNT_TYPE_LABELS.items():
-            self.type_combo.addItem(label, key)
-        self.active_check = QCheckBox("فعال")
-        self.active_check.setChecked(True)
-
-        layout.addRow("کد:", self.code_edit)
-        layout.addRow("نام:", self.name_edit)
-        layout.addRow("حساب والد:", self.parent_combo)
+        for level in AccountModel.CREATABLE_LEVELS:
+            self.level_combo.addItem(LEVEL_LABELS[level], level)
+        self.parent_combo = QComboBox()
+        self.type_label = QLabel("—")
+        self.description_edit = QTextEdit(); self.description_edit.setMaximumHeight(65)
+        self.active_check = QCheckBox("فعال"); self.active_check.setChecked(True)
+        layout.addRow("کد خودکار:", self.code_label)
+        layout.addRow("نام حساب:", self.name_edit)
         layout.addRow("سطح:", self.level_combo)
-        layout.addRow("نوع حساب:", self.type_combo)
+        layout.addRow("حساب والد:", self.parent_combo)
+        layout.addRow("نوع حساب:", self.type_label)
+        layout.addRow("توضیحات:", self.description_edit)
         layout.addRow("", self.active_check)
+        buttons = QHBoxLayout(); save = QPushButton("✔ ذخیره"); save.setObjectName("successBtn")
+        save.clicked.connect(self._save); cancel = QPushButton("انصراف"); cancel.clicked.connect(self.reject)
+        buttons.addWidget(save); buttons.addWidget(cancel); layout.addRow(buttons)
+        self.level_combo.currentIndexChanged.connect(self._reload_parents)
+        self.parent_combo.currentIndexChanged.connect(self._refresh_preview)
 
-        btn_layout = QHBoxLayout()
-        save_btn = QPushButton("✔ ذخیره")
-        save_btn.setObjectName("successBtn")
-        save_btn.clicked.connect(self._save)
-        cancel_btn = QPushButton("انصراف")
-        cancel_btn.clicked.connect(self.reject)
-        btn_layout.addWidget(save_btn)
-        btn_layout.addWidget(cancel_btn)
-        layout.addRow(btn_layout)
+    def _reload_parents(self):
+        if self.account: return
+        level = self.level_combo.currentData()
+        self.parent_combo.blockSignals(True); self.parent_combo.clear()
+        for item in self.account_model.get_valid_parents(level):
+            self.parent_combo.addItem(f"{item['code']} — {item['name']}", item["id"])
+        self.parent_combo.blockSignals(False); self._refresh_preview()
 
-        self.parent_combo.currentIndexChanged.connect(self._on_parent_changed)
-
-    def _on_parent_changed(self):
-        parent_id = self.parent_combo.currentData()
-        if parent_id:
-            parent = self.account_model.get_by_id(parent_id)
-            if parent:
-                idx = self.level_combo.findData(parent["level"] + 1)
-                if idx >= 0:
-                    self.level_combo.setCurrentIndex(idx)
-                tidx = self.type_combo.findData(parent["account_type"])
-                if tidx >= 0:
-                    self.type_combo.setCurrentIndex(tidx)
+    def _refresh_preview(self):
+        parent = self.account_model.get_by_id(self.parent_combo.currentData())
+        if not parent:
+            self.code_label.setText("والد معتبر انتخاب کنید"); self.type_label.setText("—"); return
+        self.type_label.setText(AccountModel.type_label(parent["account_type"]))
+        try: self.code_label.setText(self.account_model.next_code(parent["id"], self.level_combo.currentData()))
+        except ValueError as error: self.code_label.setText(str(error))
 
     def _load_account(self):
-        self.code_edit.setText(self.account["code"])
-        self.name_edit.setText(self.account["name"])
-        idx = self.parent_combo.findData(self.account["parent_id"])
-        if idx >= 0:
-            self.parent_combo.setCurrentIndex(idx)
+        self.code_label.setText(self.account["code"]); self.name_edit.setText(self.account["name"])
         self.level_combo.setCurrentIndex(self.level_combo.findData(self.account["level"]))
-        self.type_combo.setCurrentIndex(self.type_combo.findData(self.account["account_type"]))
+        self.level_combo.setEnabled(False)
+        parent = self.account_model.get_by_id(self.account.get("parent_id")) if self.account.get("parent_id") else None
+        self.parent_combo.addItem(f"{parent['code']} — {parent['name']}" if parent else "—", self.account.get("parent_id"))
+        self.parent_combo.setEnabled(False); self.type_label.setText(AccountModel.type_label(self.account["account_type"]))
+        self.description_edit.setPlainText(self.account.get("description") or "")
         self.active_check.setChecked(bool(self.account["is_active"]))
-        if self.account:
-            self.parent_combo.setEnabled(False)
-            self.level_combo.setEnabled(False)
 
     def _save(self):
         try:
-            code = self.code_edit.text().strip()
-            name = self.name_edit.text().strip()
-            if not code or not name:
-                raise ValueError("کد و نام الزامی است")
-            parent_id = self.parent_combo.currentData()
-            level = self.level_combo.currentData()
-            acc_type = self.type_combo.currentData()
             if self.account:
-                self.account_model.update(
-                    self.account["id"], code, name, acc_type, self.active_check.isChecked()
-                )
+                self.account_model.update(self.account["id"], self.name_edit.text(), self.active_check.isChecked(), self.description_edit.toPlainText())
             else:
-                self.account_model.create(code, name, parent_id, level, acc_type)
+                self.account_model.create(self.name_edit.text(), self.parent_combo.currentData(), self.level_combo.currentData(), self.description_edit.toPlainText())
             self.accept()
-        except ValueError as e:
-            show_error(self, str(e))
+        except ValueError as error: show_error(self, str(error))
 
 
 class AccountsWidget(QWidget):
     def __init__(self, account_model, parent=None):
-        super().__init__(parent)
-        self.account_model = account_model
-        self.setLayoutDirection(Qt.RightToLeft)
-        self._build_ui()
-        self.refresh()
+        super().__init__(parent); self.account_model = account_model; self.setLayoutDirection(Qt.RightToLeft)
+        self._build_ui(); self.refresh()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-
+        layout.setContentsMargins(8, 6, 8, 6)
+        layout.setSpacing(6)
+        # create title but add it inside content card so table area gets priority
+        title = QLabel("کدینگ حساب‌ها")
+        title.setObjectName("sectionLabel")
+        title.setContentsMargins(0, 0, 0, 2)
+        title.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         toolbar = QHBoxLayout()
-        self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("جستجو بر اساس کد یا نام...")
-        self.search_edit.textChanged.connect(self.refresh)
-        toolbar.addWidget(self.search_edit)
-
-        add_btn = QPushButton("➕ حساب جدید")
-        add_btn.setObjectName("successBtn")
-        add_btn.clicked.connect(self._add)
-        edit_btn = QPushButton("✏ ویرایش")
-        edit_btn.clicked.connect(self._edit)
-        del_btn = QPushButton("🗑 حذف")
-        del_btn.setObjectName("dangerBtn")
-        del_btn.clicked.connect(self._delete)
-        toolbar.addWidget(add_btn)
-        toolbar.addWidget(edit_btn)
-        toolbar.addWidget(del_btn)
-        layout.addLayout(toolbar)
-
+        toolbar.setContentsMargins(0, 0, 0, 0)
+        toolbar.setSpacing(6)
+        toolbar.addWidget(QLabel("گروه:")); self.group_combo = QComboBox(); self.group_combo.addItem("همه گروه‌ها", None)
+        for key, label in ACCOUNT_TYPE_LABELS.items(): self.group_combo.addItem(label, key)
+        self.group_combo.currentIndexChanged.connect(self.refresh); toolbar.addWidget(self.group_combo)
+        self.search_edit = QLineEdit(); self.search_edit.setPlaceholderText("جستجو بر اساس کد یا نام…")
+        self.search_edit.textChanged.connect(self.refresh); toolbar.addWidget(self.search_edit)
+        add = QPushButton("➕ حساب جدید"); add.setObjectName("successBtn"); add.clicked.connect(self._add)
+        edit = QPushButton("✏ ویرایش"); edit.clicked.connect(self._edit)
+        delete = QPushButton("🗑 حذف"); delete.setObjectName("dangerBtn"); delete.clicked.connect(self._delete)
+        toolbar.addWidget(add); toolbar.addWidget(edit); toolbar.addWidget(delete)
         splitter = QSplitter(Qt.Horizontal)
-        self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["کد", "نام", "سطح", "نوع"])
-        self.tree.setColumnWidth(0, 100)
-        self.tree.setColumnWidth(1, 250)
-        self.tree.itemDoubleClicked.connect(lambda: self._edit())
+        self.tree = QTreeWidget(); self.tree.setHeaderLabels(["کد", "نام حساب", "سطح", "نوع", "وضعیت"]); self.tree.setColumnWidth(1, 250)
+        self.tree.itemDoubleClicked.connect(lambda *_: self._edit())
+        self.table = QTableWidget(); self.table.setColumnCount(5); self.table.setHorizontalHeaderLabels(["کد", "نام حساب", "سطح", "نوع", "وضعیت"])
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        self.table.setWordWrap(True)
+        self.table.setTextElideMode(Qt.ElideNone)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows); self.table.setAlternatingRowColors(True)
+        self.table.itemDoubleClicked.connect(lambda *_: self._edit())
 
-        self.table = QTableWidget()
-        self.table.setColumnCount(5)
-        self.table.setHorizontalHeaderLabels(["کد", "نام", "سطح", "نوع", "وضعیت"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setAlternatingRowColors(True)
-        self.table.itemDoubleClicked.connect(lambda: self._edit())
-
-        splitter.addWidget(self.tree)
-        splitter.addWidget(self.table)
-        splitter.setSizes([400, 400])
-        layout.addWidget(splitter)
+        # Wrap toolbar and content in a card to visually separate from page background
+        content_card = QFrame()
+        content_card.setObjectName("contentCard")
+        content_layout = QVBoxLayout(content_card)
+        content_layout.setContentsMargins(2, 2, 2, 4)
+        content_layout.setSpacing(6)
+        # subtle shadow to lift the card from the background
+        try:
+            apply_shadow(content_card)
+        except Exception:
+            pass
+        # add smaller title inside content card
+        content_layout.addWidget(title)
+        content_layout.addLayout(toolbar)
+        splitter.addWidget(self.tree); splitter.addWidget(self.table); splitter.setSizes([280, 720])
+        # give table more vertical room
+        self.table.setMinimumHeight(320)
+        content_layout.addWidget(splitter)
+        # let splitter expand to take remaining vertical space
+        content_layout.setStretch(content_layout.count() - 1, 1)
+        layout.addWidget(content_card)
 
     def refresh(self):
-        search = self.search_edit.text().strip()
-        accounts = self.account_model.get_all(search=search, active_only=False)
-        self._fill_tree(accounts)
-        self._fill_table(accounts)
+        accounts = self.account_model.get_all(self.search_edit.text().strip(), active_only=False, account_type=self.group_combo.currentData())
+        self._fill_tree(accounts); self._fill_table(accounts)
 
     def _fill_tree(self, accounts):
-        self.tree.clear()
-        by_parent = {}
-        for acc in accounts:
-            pid = acc["parent_id"] or 0
-            by_parent.setdefault(pid, []).append(acc)
-        self._add_tree_items(None, 0, by_parent)
+        self.tree.clear(); children = {}
+        ids = {a["id"] for a in accounts}
+        for account in accounts: children.setdefault(account["parent_id"] if account["parent_id"] in ids else 0, []).append(account)
+        self._add_tree_items(None, 0, children); self.tree.expandToDepth(1)
 
-    def _add_tree_items(self, parent_item, parent_id, by_parent):
-        for acc in by_parent.get(parent_id, []):
-            item = QTreeWidgetItem([
-                acc["code"], acc["name"],
-                AccountModel.level_label(acc["level"]),
-                AccountModel.type_label(acc["account_type"]),
-            ])
-            item.setData(0, Qt.UserRole, acc["id"])
-            if parent_item:
-                parent_item.addChild(item)
-            else:
-                self.tree.addTopLevelItem(item)
-            self._add_tree_items(item, acc["id"], by_parent)
+    def _add_tree_items(self, parent_item, parent_id, children):
+        for account in children.get(parent_id, []):
+            status = "فعال" if account["is_active"] else "غیرفعال"
+            item = QTreeWidgetItem([account["code"], account["name"], AccountModel.level_label(account["level"]), AccountModel.type_label(account["account_type"]), status])
+            item.setData(0, Qt.UserRole, account["id"])
+            (parent_item.addChild(item) if parent_item else self.tree.addTopLevelItem(item)); self._add_tree_items(item, account["id"], children)
 
     def _fill_table(self, accounts):
         self.table.setRowCount(len(accounts))
-        for row, acc in enumerate(accounts):
-            self.table.setItem(row, 0, QTableWidgetItem(acc["code"]))
-            self.table.setItem(row, 1, QTableWidgetItem(acc["name"]))
-            self.table.setItem(row, 2, QTableWidgetItem(AccountModel.level_label(acc["level"])))
-            self.table.setItem(row, 3, QTableWidgetItem(AccountModel.type_label(acc["account_type"])))
-            status = "فعال" if acc["is_active"] else "غیرفعال"
-            item = QTableWidgetItem(status)
-            item.setData(Qt.UserRole, acc["id"])
-            self.table.setItem(row, 4, item)
+        for row, account in enumerate(accounts):
+            values = [account["code"], account["name"], AccountModel.level_label(account["level"]), AccountModel.type_label(account["account_type"]), "فعال" if account["is_active"] else "غیرفعال"]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column == 4: item.setData(Qt.UserRole, account["id"])
+                self.table.setItem(row, column, item)
+        # ensure rows expand to show wrapped text for long names
+        self.table.resizeRowsToContents()
 
     def _selected_id(self):
-        rows = self.table.selectedItems()
-        if rows:
-            return self.table.item(self.table.currentRow(), 4).data(Qt.UserRole)
-        item = self.tree.currentItem()
-        if item:
-            return item.data(0, Qt.UserRole)
-        return None
+        if self.table.currentRow() >= 0: return self.table.item(self.table.currentRow(), 4).data(Qt.UserRole)
+        item = self.tree.currentItem(); return item.data(0, Qt.UserRole) if item else None
 
     def _add(self):
-        dlg = AccountDialog(self.account_model, parent=self)
-        if dlg.exec_():
-            self.refresh()
-            show_info(self, "حساب با موفقیت ایجاد شد")
+        if AccountDialog(self.account_model, parent=self).exec_(): self.refresh(); show_info(self, "حساب با موفقیت ایجاد شد")
 
     def _edit(self):
-        acc_id = self._selected_id()
-        if not acc_id:
-            show_error(self, "لطفاً یک حساب انتخاب کنید")
-            return
-        account = self.account_model.get_by_id(acc_id)
-        dlg = AccountDialog(self.account_model, account, parent=self)
-        if dlg.exec_():
-            self.refresh()
-            show_info(self, "حساب با موفقیت ویرایش شد")
+        account_id = self._selected_id()
+        if not account_id: show_error(self, "لطفاً یک حساب انتخاب کنید"); return
+        if AccountDialog(self.account_model, self.account_model.get_by_id(account_id), self).exec_(): self.refresh(); show_info(self, "حساب به‌روزرسانی شد")
 
     def _delete(self):
-        acc_id = self._selected_id()
-        if not acc_id:
-            show_error(self, "لطفاً یک حساب انتخاب کنید")
-            return
-        if not show_confirm(self, "آیا از حذف این حساب اطمینان دارید؟"):
-            return
-        try:
-            self.account_model.delete(acc_id)
-            self.refresh()
-            show_info(self, "حساب حذف شد")
-        except ValueError as e:
-            show_error(self, str(e))
+        account_id = self._selected_id()
+        if not account_id: show_error(self, "لطفاً یک حساب انتخاب کنید"); return
+        if show_confirm(self, "آیا از حذف این حساب اطمینان دارید؟"):
+            try: self.account_model.delete(account_id); self.refresh(); show_info(self, "حساب حذف شد")
+            except ValueError as error: show_error(self, str(error))
