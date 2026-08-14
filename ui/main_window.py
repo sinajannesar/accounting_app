@@ -148,7 +148,6 @@ class MainWindow(QMainWindow):
             lbl.setObjectName("sidebarSection")
             lbl.setEnabled(False)
             lbl.setLayoutDirection(Qt.RightToLeft)
-            lbl.setStyleSheet("text-align: right; padding: 8px 12px;")
             sidebar_layout.addWidget(lbl)
             return lbl
 
@@ -161,9 +160,7 @@ class MainWindow(QMainWindow):
             # ensure RTL layout for icon+text ordering and right-aligned text
             btn.setLayoutDirection(Qt.RightToLeft)
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            # enforce right-aligned text for Persian UI
-            existing = btn.styleSheet() or ""
-            btn.setStyleSheet(existing + "text-align: right; padding-right: 14px;")
+            # Visual alignment and padding handled by central QSS in ui/styles.py
             if icon is None:
                 # fallback to generic icon file
                 icon_path = os.path.join(os.path.dirname(__file__), "icons", "report.svg")

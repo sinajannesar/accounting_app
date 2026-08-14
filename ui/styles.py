@@ -384,8 +384,22 @@ QFrame#contentCard {{
 /* Left sidebar */
 QFrame#rightSidebar {{
     background-color: {SIDEBAR_DARK};
+    border-left: 1px solid {COLOR_BORDER};
+}}
+
+/* Sidebar width rules: use property selectors so programmatic min/max
+   settings and animations take effect depending on collapsed state. */
+QFrame#rightSidebar[collapsed="false"] {{
+    background-color: {SIDEBAR_DARK};
     min-width: 240px;
     max-width: 260px;
+    border-left: 1px solid {COLOR_BORDER};
+}}
+
+QFrame#rightSidebar[collapsed="true"] {{
+    background-color: {SIDEBAR_DARK};
+    min-width: 76px;
+    max-width: 76px;
     border-left: 1px solid {COLOR_BORDER};
 }}
 
