@@ -47,7 +47,11 @@ class LedgerWidget(QWidget):
         content_layout.addLayout(filter_layout)
 
         export_layout = QHBoxLayout()
-        excel_btn = QPushButton("📊 خروجی Excel")
+        excel_btn = QPushButton("  خروجی Excel")
+        excel_icon = os.path.join(os.path.dirname(__file__), "..", "icons", "report.svg")
+        excel_icon = os.path.normpath(excel_icon)
+        if os.path.exists(excel_icon):
+            excel_btn.setIcon(QIcon(excel_icon))
         excel_btn.clicked.connect(lambda: self._export("excel"))
         pdf_btn = QPushButton("📄 خروجی PDF")
         pdf_btn.clicked.connect(lambda: self._export("pdf"))

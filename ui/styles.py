@@ -52,6 +52,8 @@ COLOR_DANGER_DARK = "#D92F1F"
 COLOR_TEXT = "#172033"  # requested
 COLOR_TEXT_MUTED = "#667085"
 COLOR_TEXT_FAINT = "#98A0B0"
+COLOR_TEXT_DARK = "#101828"
+COLOR_CHART_TEXT = "#344054"
 
 COLOR_BG = "#F7F8FC"
 COLOR_CARD = "#FFFFFF"
@@ -146,7 +148,7 @@ QToolBar {{
 /* ---------- دکمه‌ها ---------- */
 /* Primary buttons: subtle flat gradient */
 QPushButton {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {COLOR_PRIMARY}, stop:1 {COLOR_PRIMARY_DARK});
+    background-color: {COLOR_PRIMARY};
     color: white;
     border: none;
     padding: 8px 16px;
@@ -155,7 +157,7 @@ QPushButton {{
     font-weight: 700;
 }}
 QPushButton:hover {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {COLOR_PRIMARY_DARK}, stop:1 {COLOR_PRIMARY_DARKER});
+    background-color: {COLOR_PRIMARY_HOVER};
 }}
 QPushButton:pressed {{
     /* no transform in Qt stylesheets */
@@ -170,7 +172,7 @@ QPushButton#dangerBtn {{
     background-color: {COLOR_DANGER};
 }}
 QPushButton#dangerBtn:hover {{
-    background-color: {COLOR_DANGER_DARK};
+    background-color: {COLOR_DANGER};
 }}
 
 QPushButton#successBtn {{
@@ -380,11 +382,11 @@ QFrame#contentCard {{
 }}
 
 /* Left sidebar */
-QFrame#leftSidebar {{
+QFrame#rightSidebar {{
     background-color: {SIDEBAR_DARK};
     min-width: 240px;
     max-width: 260px;
-    border-right: 1px solid {COLOR_BORDER};
+    border-left: 1px solid {COLOR_BORDER};
 }}
 
 /* Sidebar items (icon + label) */
@@ -403,6 +405,47 @@ QPushButton#sidebarItem:hover {{
 QPushButton#sidebarItem:checked {{
     background-color: {COLOR_PRIMARY_LIGHT};
     color: {COLOR_PRIMARY};
+    /* RTL: indicator on the right */
+    border-right: 4px solid {COLOR_PRIMARY};
+}}
+
+/* Collapsed sidebar: use compact rounded active container for checked item */
+QFrame#rightSidebar[collapsed="true"] QPushButton#sidebarItem:checked {{
+    background-color: {COLOR_PRIMARY};
+    color: white;
+    border-radius: 10px;
+    margin-right: 6px;
+}}
+
+/* Expanded vs Collapsed layouts for sidebar items */
+QFrame#rightSidebar[collapsed="false"] QPushButton#sidebarItem {{
+    text-align: right;
+    padding-right: 14px;
+    min-height: 36px;
+    color: {SIDEBAR_TEXT};
+}}
+
+QFrame#rightSidebar[collapsed="true"] QPushButton#sidebarItem {{
+    text-align: center;
+    padding: 10px 0;
+    min-height: 48px;
+    color: {SIDEBAR_TEXT};
+}}
+
+/* Collapse button styling */
+QPushButton#sidebarCollapse {{
+    background: transparent;
+    color: {SIDEBAR_MUTED};
+    border: none;
+    padding: 8px;
+}}
+
+/* Header actions */
+QPushButton#headerAction {{
+    background: transparent;
+    border: none;
+    color: {COLOR_TEXT_MUTED};
+    padding: 6px 8px;
 }}
 
 QPushButton#sidebarSection {{
@@ -483,12 +526,12 @@ QPushButton {{
     border-radius: 10px;
 }}
 QPushButton#flatBtn, QPushButton#successBtn {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {COLOR_PRIMARY}, stop:1 {COLOR_PRIMARY_DARK});
+    background-color: {COLOR_PRIMARY};
     color: white;
     padding: 10px 16px;
 }}
 QPushButton#dangerBtn {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {COLOR_DANGER}, stop:1 {COLOR_DANGER_DARK});
+    background-color: {COLOR_DANGER};
     color: white;
     padding: 10px 16px;
 }}

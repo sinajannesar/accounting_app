@@ -113,7 +113,10 @@ class CashWidget(QWidget):
         out_btn = QPushButton("⬇ خروج وجه")
         out_btn.setObjectName("dangerBtn")
         out_btn.clicked.connect(lambda: self._add_transaction(False))
-        refresh_btn = QPushButton("🔄 بروزرسانی")
+        refresh_btn = QPushButton("  بروزرسانی")
+        refresh_icon = os.path.join(os.path.dirname(__file__), "icons", "refresh.svg")
+        if os.path.exists(refresh_icon):
+            refresh_btn.setIcon(QIcon(refresh_icon))
         refresh_btn.clicked.connect(self.refresh)
         print_btn = QPushButton("🖨 چاپ رسید")
         print_btn.clicked.connect(self._print_receipt)

@@ -316,7 +316,10 @@ class JournalWidget(QWidget):
 
         due_tab = QWidget()
         due_layout = QVBoxLayout(due_tab)
-        due_refresh_btn = QPushButton("🔄 بروزرسانی")
+        due_refresh_btn = QPushButton("  بروزرسانی")
+        refresh_icon = os.path.join(os.path.dirname(__file__), "icons", "refresh.svg")
+        if os.path.exists(refresh_icon):
+            due_refresh_btn.setIcon(QIcon(refresh_icon))
         due_refresh_btn.clicked.connect(self._refresh_due)
         due_layout.addWidget(due_refresh_btn)
         self.due_table = QTableWidget()

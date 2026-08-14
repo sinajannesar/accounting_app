@@ -2,10 +2,11 @@
 """تب داشبورد — خلاصه وضعیت مالی"""
 
 from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QPainter, QColor, QFont, QPen
+from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QPixmap, QIcon
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QGridLayout,
 )
+import os
 
 from ui.widgets import format_amount, apply_shadow
 from ui.styles import (
@@ -13,30 +14,21 @@ from ui.styles import (
     COLOR_SUCCESS, COLOR_DANGER, COLOR_PRIMARY, COLOR_INFO,
     RADIUS_MD, RADIUS_SM,
 )
+from ui.styles import COLOR_TEXT_DARK, COLOR_CHART_TEXT
 from utils.jalali import last_n_months, current_jalali_year_month, PERSIAN_MONTH_NAMES
 
 
 class MetricCard(QFrame):
-    """کارت شاخص با آیکون، برجستگی (سایه) و رنگ معنایی برای اسکن سریع."""
+    """High-contrast metric card: white background, dark text, colored icon/accent."""
 
     def __init__(self, title, color=COLOR_TEXT, icon="", parent=None):
         super().__init__(parent)
         self.setObjectName("metricCard")
-        # expose a 'variant' property for styling and make cards larger
         if color != COLOR_TEXT:
-            # mark as accented card
             self.setProperty("variant", "accent")
         self.setMinimumHeight(120)
-        # if a semantic color is provided, style the card with that color for emphasis
-        if color != COLOR_TEXT:
-            self.setStyleSheet(f"QFrame#metricCard {{ background: {color}; border: none; color: white; border-radius: {RADIUS_MD}px; }}")
-        self.setStyleSheet(f"""
-            QFrame#metricCard {{
-                background-color: {COLOR_CARD};
-                border: 1px solid {COLOR_BORDER};
-                border-radius: {RADIUS_MD}px;
-            }}
-        """)
+        # white card with subtle border
+        self.setStyleSheet(f"QFrame#metricCard {{ background-color: {COLOR_CARD}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MD}px; }}")
         apply_shadow(self, blur=20, y_offset=3, alpha=22)
 
         outer = QVBoxLayout(self)
@@ -46,29 +38,39 @@ class MetricCard(QFrame):
         header = QHBoxLayout()
         header.setSpacing(8)
         if icon:
-            icon_label = QLabel(icon)
+            icon_label = QLabel()
             icon_label.setProperty("role", "cardIcon")
-            # let the stylesheet control the visual; set a minimal inline fallback
-            icon_label.setStyleSheet(f"border: none; font-size: 13pt; padding: 6px;")
+            # if icon is a path or QIcon, load it
+            if isinstance(icon, QIcon):
+                pix = icon.pixmap(20, 20)
+            else:
+                icon_path = icon if isinstance(icon, str) and os.path.exists(icon) else None
+                pix = QPixmap(icon_path) if icon_path else QPixmap()
+            if not pix.isNull():
+                icon_label.setPixmap(pix)
+            icon_label.setStyleSheet(f"background-color: {color}; border-radius: {RADIUS_SM}px; padding: 6px;")
+            icon_label.setFixedSize(40, 40)
             header.addWidget(icon_label, 0)
         self.title_label = QLabel(title)
-        # title uses muted text on neutral cards, white on colored cards
-        title_color = "white" if color != COLOR_TEXT else COLOR_TEXT_MUTED
-        self.title_label.setStyleSheet(
-            f"color: {title_color}; font-size: 10pt; font-weight: 700; border: none;"
-        )
+        # Title: medium dark
+        self.title_label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 10pt; font-weight: 700; border: none;")
         header.addWidget(self.title_label, 1)
         outer.addLayout(header)
 
+        # main value and unit on same row for compactness
+        value_row = QHBoxLayout()
         self.value_label = QLabel("0")
-        value_color = "white" if color != COLOR_TEXT else color
-        self.value_label.setStyleSheet(
-            f"color: {value_color}; font-size: 18pt; font-weight: 900; border: none; padding-top: 2px;"
-        )
-        outer.addWidget(self.value_label)
+        self.value_label.setStyleSheet(f"color: {COLOR_TEXT_DARK}; font-size: 18pt; font-weight: 900; border: none;")
+        value_row.addWidget(self.value_label)
+        self.unit_label = QLabel("")
+        self.unit_label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 11pt; padding-right: 8px;")
+        value_row.addWidget(self.unit_label)
+        value_row.addStretch()
+        outer.addLayout(value_row)
 
-    def set_value(self, text):
+    def set_value(self, text, unit=""):
         self.value_label.setText(text)
+        self.unit_label.setText(unit)
 
 
 class MonthlyBarChart(QWidget):
@@ -89,7 +91,7 @@ class MonthlyBarChart(QWidget):
         painter.fillRect(self.rect(), QColor(COLOR_CARD))
 
         if not self.data:
-            painter.setPen(QPen(QColor(COLOR_TEXT_MUTED)))
+            painter.setPen(QPen(QColor(COLOR_CHART_TEXT)))
             painter.setFont(QFont("Vazirmatn", 10))
             painter.drawText(self.rect(), Qt.AlignCenter, "داده‌ای برای نمایش وجود ندارد")
             painter.end()
@@ -113,7 +115,7 @@ class MonthlyBarChart(QWidget):
             val = max_val * i / 4
             painter.setPen(QPen(QColor(COLOR_BORDER)))
             painter.drawLine(margin_left, int(y), margin_left + w, int(y))
-            painter.setPen(QPen(QColor(COLOR_TEXT_MUTED)))
+            painter.setPen(QPen(QColor(COLOR_CHART_TEXT)))
             painter.drawText(QRectF(0, y - 8, margin_left - 10, 16), Qt.AlignRight | Qt.AlignVCenter, format_amount(val))
 
         # محور پایه پررنگ‌تر از خطوط راهنما
@@ -142,7 +144,7 @@ class MonthlyBarChart(QWidget):
                 QRectF(expense_x, margin_top + h - expense_h, bar_width, max(expense_h, 0)), 4, 4
             )
 
-            painter.setPen(QPen(QColor(COLOR_TEXT)))
+            painter.setPen(QPen(QColor(COLOR_CHART_TEXT)))
             painter.setFont(QFont("Vazirmatn", 9))
             painter.drawText(
                 QRectF(group_center - group_width / 2, margin_top + h + 8, group_width, 20),
@@ -179,7 +181,11 @@ class DashboardWidget(QWidget):
         header_row.addLayout(title_box)
         header_row.addStretch()
 
-        refresh_btn = QPushButton("🔄  بروزرسانی")
+        # use SVG refresh icon, avoid emoji
+        refresh_btn = QPushButton("  بروزرسانی")
+        refresh_icon = os.path.join(os.path.dirname(__file__), "icons", "refresh.svg")
+        if os.path.exists(refresh_icon):
+            refresh_btn.setIcon(QIcon(refresh_icon))
         refresh_btn.setObjectName("flatBtn")
         refresh_btn.clicked.connect(self.refresh)
         header_row.addWidget(refresh_btn)
@@ -187,10 +193,11 @@ class DashboardWidget(QWidget):
 
         cards_layout = QGridLayout()
         cards_layout.setSpacing(14)
-        self.income_card = MetricCard("درآمد این ماه", color=COLOR_SUCCESS, icon="📈")
-        self.expense_card = MetricCard("هزینه این ماه", color=COLOR_DANGER, icon="📉")
-        self.profit_card = MetricCard("سود/زیان این ماه", color=COLOR_PRIMARY, icon="💼")
-        self.cash_card = MetricCard("موجودی صندوق", color=COLOR_INFO, icon="💵")
+        icons_dir = os.path.join(os.path.dirname(__file__), "icons")
+        self.income_card = MetricCard("درآمد این ماه", color=COLOR_SUCCESS, icon=os.path.join(icons_dir, "chart_up.svg"))
+        self.expense_card = MetricCard("هزینه این ماه", color=COLOR_DANGER, icon=os.path.join(icons_dir, "chart_down.svg"))
+        self.profit_card = MetricCard("سود/زیان این ماه", color=COLOR_PRIMARY, icon=os.path.join(icons_dir, "profit.svg"))
+        self.cash_card = MetricCard("موجودی صندوق", color=COLOR_INFO, icon=os.path.join(icons_dir, "cash.svg"))
         cards_layout.addWidget(self.income_card, 0, 0)
         cards_layout.addWidget(self.expense_card, 0, 1)
         cards_layout.addWidget(self.profit_card, 0, 2)

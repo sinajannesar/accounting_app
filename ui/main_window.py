@@ -2,12 +2,14 @@
 
 import sys
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QMainWindow, QTabWidget, QMenuBar, QMenu, QAction,
-    QStatusBar, QFileDialog, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QPushButton,
+    QStatusBar, QFileDialog, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QPushButton, QStyle, QLabel,
 )
+from PyQt5.QtGui import QIcon, QPixmap
+import os
 
 from database.db_manager import DatabaseManager
 from models.account import AccountModel
@@ -21,6 +23,7 @@ from ui.reports.subsidiary_ledger import SubsidiaryLedgerWidget, DetailLedgerWid
 from ui.reports.general_ledger import GeneralLedgerWidget
 from ui.reports.trial_balance import TrialBalanceWidget
 from ui.reports.income_statement import IncomeStatementWidget
+from ui.settings_widget import SettingsWidget
 from ui.styles import APP_STYLE
 from ui.widgets import show_info, show_error, show_confirm, format_amount
 from utils.backup import restore_database
@@ -37,7 +40,8 @@ class MainWindow(QMainWindow):
         self.journal_model = JournalModel(self.db)
         self.report_model = ReportModel(self.db, self.account_model)
 
-        self.setWindowTitle("💼 نرم‌افزار حسابداری")
+        # avoid emoji in window title
+        self.setWindowTitle("نرم‌افزار حسابداری")
         self.setMinimumSize(1000, 650)
         self.setLayoutDirection(Qt.RightToLeft)
         self.setStyleSheet(APP_STYLE)
@@ -93,23 +97,48 @@ class MainWindow(QMainWindow):
         register_view("general_ledger", GeneralLedgerWidget(self.report_model))
         register_view("trial_balance", TrialBalanceWidget(self.report_model))
         register_view("income_statement", IncomeStatementWidget(self.report_model))
+        register_view("settings", SettingsWidget())
+
+        # breadcrumb mapping for header
+        self._breadcrumb_map = {
+            'dashboard': 'داشبورد',
+            'journal': 'عملیات / اسناد حسابداری',
+            'cash': 'عملیات / صندوق',
+            'accounts': 'حسابداری / سرفصل حساب‌ها',
+            'subsidiary': 'حسابداری / دفتر معین',
+            'detail_ledger': 'حسابداری / دفتر تفصیلی',
+            'general_ledger': 'حسابداری / دفتر کل',
+            'trial_balance': 'گزارش‌ها / تراز آزمایشی',
+            'income_statement': 'گزارش‌ها / سود و زیان',
+            'settings': 'تنظیمات',
+        }
 
         # build central widget with left sidebar and content area
         central = QWidget()
+        # ensure central layout is LTR so widget order stays MainContent | Sidebar
+        central.setLayoutDirection(Qt.LeftToRight)
         central_layout = QHBoxLayout(central)
         central_layout.setContentsMargins(0, 0, 0, 0)
-
         sidebar = QFrame()
-        sidebar.setObjectName("leftSidebar")
+        sidebar.setObjectName("rightSidebar")
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(16, 18, 16, 18)
         sidebar_layout.setSpacing(6)
+        sidebar.setLayoutDirection(Qt.RightToLeft)
+
+        # track collapsed state
+        self._sidebar_collapsed = False
 
         # Header / logo area
         logo = QPushButton("نرم‌افزار حسابداری")
         logo.setObjectName("sidebarLogo")
         logo.setEnabled(False)
-        logo.setStyleSheet("text-align: right; padding: 8px")
+        # use consistent icon set for logo
+        icons_dir = os.path.join(os.path.dirname(__file__), "icons")
+        logo_path = os.path.join(icons_dir, "logo.svg")
+        if os.path.exists(logo_path):
+            logo.setIcon(QIcon(logo_path))
+            logo.setIconSize(QSize(28, 28))
         sidebar_layout.addWidget(logo)
 
         # Navigation groups and items
@@ -120,49 +149,84 @@ class MainWindow(QMainWindow):
             sidebar_layout.addWidget(lbl)
             return lbl
 
-        def add_nav_item(text, key, indent=0):
+        def add_nav_item(text, key, icon=None, indent=0):
             btn = QPushButton(text)
             btn.setObjectName("sidebarItem")
             btn.setCheckable(True)
             btn.setProperty("navKey", key)
-            btn.setStyleSheet(f"padding-right: {12 + indent}px; text-align: right;")
+            btn.setProperty("fullText", text)
+            if icon is None:
+                # fallback to generic icon file
+                icon_path = os.path.join(os.path.dirname(__file__), "icons", "report.svg")
+                ic = QIcon(icon_path) if os.path.exists(icon_path) else self.style().standardIcon(QStyle.SP_FileIcon)
+            elif isinstance(icon, QIcon):
+                ic = icon
+            else:
+                ic = QIcon(icon)
+            btn.setIcon(ic)
+            btn.setIconSize(QSize(22, 22))
             btn.clicked.connect(lambda _, k=key: self.show_view(k))
             sidebar_layout.addWidget(btn)
             return btn
 
         # top-level items
-        add_nav_item("داشبورد", "dashboard")
+        # prepare a few standard icons for nav (fallback to platform icons)
+        icons_dir = os.path.join(os.path.dirname(__file__), "icons")
+        ic_dashboard = os.path.join(icons_dir, "home.svg")
+        ic_journal = os.path.join(icons_dir, "journal.svg")
+        ic_cash = os.path.join(icons_dir, "cash.svg")
+        ic_accounts = os.path.join(icons_dir, "accounts.svg")
+        ic_ledger = os.path.join(icons_dir, "ledger.svg")
+        ic_report = os.path.join(icons_dir, "report.svg")
+        ic_settings = os.path.join(icons_dir, "settings.svg")
+
+        add_nav_item("داشبورد", "dashboard", icon=ic_dashboard)
         add_section_label("عملیات")
-        add_nav_item("اسناد حسابداری", "journal", indent=12)
-        add_nav_item("صندوق", "cash", indent=12)
+        add_nav_item("اسناد حسابداری", "journal", icon=ic_journal, indent=12)
+        add_nav_item("صندوق", "cash", icon=ic_cash, indent=12)
         add_section_label("حسابداری")
-        add_nav_item("سرفصل حساب‌ها", "accounts", indent=12)
-        add_nav_item("دفتر معین", "subsidiary", indent=12)
-        add_nav_item("دفتر تفصیلی", "detail_ledger", indent=12)
-        add_nav_item("دفتر کل", "general_ledger", indent=12)
+        add_nav_item("سرفصل حساب‌ها", "accounts", icon=ic_accounts, indent=12)
+        add_nav_item("دفتر معین", "subsidiary", icon=ic_ledger, indent=12)
+        add_nav_item("دفتر تفصیلی", "detail_ledger", icon=ic_ledger, indent=12)
+        add_nav_item("دفتر کل", "general_ledger", icon=ic_ledger, indent=12)
         add_section_label("گزارش‌ها")
-        add_nav_item("تراز آزمایشی", "trial_balance", indent=12)
-        add_nav_item("سود و زیان", "income_statement", indent=12)
+        add_nav_item("تراز آزمایشی", "trial_balance", icon=ic_report, indent=12)
+        add_nav_item("سود و زیان", "income_statement", icon=ic_report, indent=12)
 
         sidebar_layout.addStretch()
         # footer actions
-        add_nav_item("تنظیمات", "settings")
+        add_nav_item("تنظیمات", "settings", icon=ic_settings)
 
         # collapse toggle and profile
-        collapse_btn = QPushButton("⟨")
+        collapse_btn = QPushButton()
         collapse_btn.setObjectName("sidebarCollapse")
         collapse_btn.setCheckable(True)
+        collapse_icon = os.path.join(os.path.dirname(__file__), "icons", "collapse.svg")
+        if os.path.exists(collapse_icon):
+            collapse_btn.setIcon(QIcon(collapse_icon))
+        collapse_btn.setIconSize(QSize(18, 18))
         sidebar_layout.addWidget(collapse_btn)
 
-        profile = QPushButton("پروفایل")
+        profile = QPushButton()
         profile.setObjectName("sidebarProfile")
+        profile_icon = os.path.join(os.path.dirname(__file__), "icons", "accounts.svg")
+        if os.path.exists(profile_icon):
+            profile.setIcon(QIcon(profile_icon))
+        profile.setFixedHeight(40)
         sidebar_layout.addWidget(profile)
 
         # keep reference to sidebar and buttons for collapse behavior
         self._sidebar = sidebar
         # collect nav buttons (those with navKey property)
         self._sidebar_buttons = [w for w in sidebar.findChildren(QPushButton) if w.property('navKey')]
-        collapse_btn.toggled.connect(self._toggle_sidebar)
+        # use clicked to drive the toggle explicitly (avoid RTL mirroring issues)
+        collapse_btn.clicked.connect(lambda: self._toggle_sidebar(not self._sidebar_collapsed))
+        self._collapse_btn = collapse_btn
+
+        # initialize sidebar state (expanded)
+        self._apply_sidebar_state(self._sidebar_collapsed)
+        # set collapsed property on sidebar for stylesheet to use
+        self._sidebar.setProperty('collapsed', 'false')
 
         # right content area with header + stack
         right = QWidget()
@@ -173,11 +237,54 @@ class MainWindow(QMainWindow):
         header = QFrame()
         header.setObjectName("appHeader")
         header.setMinimumHeight(64)
+        # build header contents: breadcrumb (right), actions (left)
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(12, 8, 12, 8)
+        header_layout.setSpacing(8)
+        # breadcrumb (right side)
+        breadcrumb = QLabel("")
+        breadcrumb.setObjectName("breadcrumbLabel")
+        breadcrumb.setText("")
+        header_layout.addWidget(breadcrumb, 1)
+        # actions (left side)
+        actions_box = QHBoxLayout()
+        icons_dir = os.path.join(os.path.dirname(__file__), "icons")
+        bell_path = os.path.join(icons_dir, "bell.svg")
+        help_path = os.path.join(icons_dir, "help.svg")
+        settings_path = os.path.join(icons_dir, "settings.svg")
+
+        notif = QPushButton("")
+        notif.setObjectName("headerAction")
+        if os.path.exists(bell_path):
+            notif.setIcon(QIcon(bell_path))
+        help_btn = QPushButton("")
+        help_btn.setObjectName("headerAction")
+        if os.path.exists(help_path):
+            help_btn.setIcon(QIcon(help_path))
+        settings_btn = QPushButton("")
+        settings_btn.setObjectName("headerAction")
+        if os.path.exists(settings_path):
+            settings_btn.setIcon(QIcon(settings_path))
+        actions_box.addWidget(notif)
+        actions_box.addWidget(help_btn)
+        actions_box.addWidget(settings_btn)
+        header_layout.addLayout(actions_box)
+
         right_layout.addWidget(header)
         right_layout.addWidget(self.stack, 1)
 
-        central_layout.addWidget(sidebar)
+        # place the main content first then sidebar so sidebar appears on the right
         central_layout.addWidget(right, 1)
+        central_layout.addWidget(sidebar)
+
+        # sidebar width animation: animate both minimumWidth and maximumWidth together
+        self._sidebar_anim_group = QParallelAnimationGroup(self)
+        self._sidebar_anim_min = QPropertyAnimation(self._sidebar, b"minimumWidth")
+        self._sidebar_anim_max = QPropertyAnimation(self._sidebar, b"maximumWidth")
+        for a in (self._sidebar_anim_min, self._sidebar_anim_max):
+            a.setDuration(240)
+            a.setEasingCurve(QEasingCurve.InOutCubic)
+            self._sidebar_anim_group.addAnimation(a)
 
         self.setCentralWidget(central)
 
@@ -269,9 +376,7 @@ class MainWindow(QMainWindow):
 
     def show_view(self, key):
         """Switch to the view with the given key and refresh it."""
-        if key == "settings":
-            show_info(self, "تنظیمات هنوز پیاده‌سازی نشده است")
-            return
+        # allow registered views (settings is now a real view)
         idx = self.view_map.get(key)
         if idx is None:
             return
@@ -279,25 +384,138 @@ class MainWindow(QMainWindow):
         widget = self.stack.currentWidget()
         if hasattr(widget, "refresh"):
             widget.refresh()
+        # update sidebar buttons' checked state so only current is active
+        try:
+            for btn in getattr(self, '_sidebar_buttons', []):
+                nav = btn.property('navKey')
+                btn.setChecked(nav == key)
+        except Exception:
+            pass
+        # update breadcrumb in header
+        bc = self.findChild(QLabel, "breadcrumbLabel")
+        if bc is not None:
+            bc.setText(self._breadcrumb_map.get(key, ""))
 
     def _toggle_sidebar(self, collapsed: bool):
-        """Toggle sidebar collapsed state: adjust width and button labels."""
-        if collapsed:
-            # collapsed width
-            self._sidebar.setMinimumWidth(80)
-            self._sidebar.setMaximumWidth(80)
-            for btn in self._sidebar_buttons:
-                full = btn.text()
+        """Toggle sidebar collapsed state: update visuals and layout (not just width)."""
+        # flip state
+        self._sidebar_collapsed = bool(collapsed)
+
+        # If collapsing: immediately switch to icon-only visuals, then animate width
+        if self._sidebar_collapsed:
+            # apply visuals immediately: hide labels, set tooltips
+            for btn in getattr(self, '_sidebar_buttons', []):
+                full = btn.property('fullText') or btn.text()
                 btn.setProperty('fullText', full)
-                btn.setToolTip(full)
                 btn.setText("")
+                btn.setToolTip(full)
+                btn.setFixedHeight(48)
+                btn.setIconSize(QSize(22, 22))
+            # logo compact
+            logo = self.findChild(QPushButton, "sidebarLogo")
+            if logo:
+                logo.setText("")
+                logo.setToolTip("نرم‌افزار حسابداری")
+
+        # animate width between expanded and collapsed values (min & max)
+        current_min = self._sidebar.minimumWidth() or 240
+        current_max = self._sidebar.maximumWidth() or 260
+        start_min = current_min
+        start_max = current_max
+        end_min = 76 if self._sidebar_collapsed else 240
+        end_max = 76 if self._sidebar_collapsed else 260
+
+        # stop previous animations
+        try:
+            self._sidebar_anim_group.stop()
+        except Exception:
+            pass
+
+        self._sidebar_anim_min.setStartValue(start_min)
+        self._sidebar_anim_min.setEndValue(end_min)
+        self._sidebar_anim_max.setStartValue(start_max)
+        self._sidebar_anim_max.setEndValue(end_max)
+
+        # disconnect any previous finished handlers
+        try:
+            self._sidebar_anim_group.finished.disconnect()
+        except Exception:
+            pass
+
+        def on_finished():
+            # apply final visual adjustments after animation
+            self._apply_sidebar_state(self._sidebar_collapsed)
+
+        self._sidebar_anim_group.finished.connect(on_finished)
+        self._sidebar_anim_group.start()
+
+    def _apply_sidebar_state(self, collapsed: bool):
+        # width
+        if collapsed:
+            w = 76
+            self._sidebar.setMinimumWidth(w)
+            self._sidebar.setMaximumWidth(w)
         else:
             self._sidebar.setMinimumWidth(240)
             self._sidebar.setMaximumWidth(260)
-            for btn in self._sidebar_buttons:
-                full = btn.property('fullText') or ""
+
+        # logo behaviour
+        logo = self.findChild(QPushButton, "sidebarLogo")
+        if logo:
+            if collapsed:
+                # show only icon
+                logo.setText("")
+                logo.setToolTip("نرم‌افزار حسابداری")
+                logo_path = os.path.join(os.path.dirname(__file__), "icons", "logo.svg")
+                if os.path.exists(logo_path):
+                    logo.setIcon(QIcon(logo_path))
+                    logo.setIconSize(QSize(28, 28))
+                logo.setEnabled(False)
+            else:
+                logo_path = os.path.join(os.path.dirname(__file__), "icons", "logo.svg")
+                if os.path.exists(logo_path):
+                    logo.setIcon(QIcon(logo_path))
+                    logo.setIconSize(QSize(28, 28))
+                logo.setText("نرم‌افزار حسابداری")
+                logo.setToolTip("")
+
+        # set property for stylesheet rules
+        self._sidebar.setProperty('collapsed', 'true' if collapsed else 'false')
+        self._sidebar.style().unpolish(self._sidebar)
+        self._sidebar.style().polish(self._sidebar)
+
+        # nav buttons: show/hide labels and adjust icon-only styling
+        for btn in getattr(self, '_sidebar_buttons', []):
+            full = btn.property('fullText') or btn.text()
+            if collapsed:
+                # store full text and hide label (styling via stylesheet)
+                btn.setProperty('fullText', full)
+                btn.setText("")
+                btn.setToolTip(full)
+                btn.setFixedHeight(48)
+                btn.setIconSize(QSize(22, 22))
+            else:
                 btn.setText(full)
                 btn.setToolTip("")
+                btn.setFixedHeight(36)
+
+        # active visual for collapsed mode: find checked button and adjust style
+        # active state is handled via stylesheet selectors; ensure checked state preserved
+        # no inline style changes here
+        # ensure collapse button checked state matches
+        if self._collapse_btn:
+            self._collapse_btn.setChecked(collapsed)
+
+        # collapse button icon
+        if self._collapse_btn:
+            collapse_icon = os.path.join(os.path.dirname(__file__), "icons", "collapse.svg")
+            expand_icon = os.path.join(os.path.dirname(__file__), "icons", "expand.svg")
+            if collapsed:
+                if os.path.exists(expand_icon):
+                    self._collapse_btn.setIcon(QIcon(expand_icon))
+            else:
+                if os.path.exists(collapse_icon):
+                    self._collapse_btn.setIcon(QIcon(collapse_icon))
 
     def closeEvent(self, event):
         self.db.close()
