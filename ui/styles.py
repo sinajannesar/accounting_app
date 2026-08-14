@@ -41,8 +41,9 @@ ACCENT_CYAN = "#E8F7FF"
 SIDEBAR_DARK = "#111827"
 SIDEBAR_DARK_SECONDARY = "#1F2937"
 SIDEBAR_ACTIVE = "#312E81"
-SIDEBAR_TEXT = "#F9FAFB"
-SIDEBAR_MUTED = "#9CA3AF"
+# Make all sidebar text white per user request
+SIDEBAR_TEXT = "#FFFFFF"
+SIDEBAR_MUTED = "#FFFFFF"
 
 # Additional darker variants used by older rules
 COLOR_PRIMARY_DARKER = "#312E81"
@@ -403,6 +404,11 @@ QFrame#rightSidebar[collapsed="true"] {{
     border-left: 1px solid {COLOR_BORDER};
 }}
 
+/* Force all text inside the sidebar to white to ensure consistency */
+QFrame#rightSidebar, QFrame#rightSidebar * {{
+    color: {SIDEBAR_TEXT};
+}}
+
 /* Sidebar items (icon + label) */
 QPushButton#sidebarItem {{
     background: transparent;
@@ -456,6 +462,24 @@ QFrame#rightSidebar[collapsed="true"] QPushButton#sidebarItem {{
     min-width: 44px;
 }}
 
+/* Ensure QLabel children inside sidebar items are transparent and inherit text color
+   so they don't render white boxes in front of the dark sidebar. Also enforce
+   right-alignment for RTL layouts. */
+QPushButton#sidebarItem QLabel#sidebarItemText {{
+    background: transparent;
+    color: inherit;
+    border: none;
+    padding: 0;
+    margin: 0;
+}}
+
+QPushButton#sidebarItem QLabel#sidebarItemIcon {{
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+}}
+
 /* Collapse button styling */
 QPushButton#sidebarCollapse {{
     background: transparent;
@@ -473,7 +497,7 @@ QPushButton#headerAction {{
 }}
 
 QPushButton#sidebarSection {{
-    color: {SIDEBAR_MUTED};
+    color: {SIDEBAR_TEXT};
     background: transparent;
     border: none;
     padding: 8px 12px;
@@ -620,5 +644,35 @@ QScrollBar::handle:horizontal {{
 }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
     width: 0;
+}}
+
+/* Ensure disabled and all descendant text in sidebar remains visible (white) */
+QFrame#rightSidebar QPushButton:disabled, QFrame#rightSidebar QLabel:disabled, QFrame#rightSidebar *:disabled {{
+    color: {SIDEBAR_TEXT};
+    opacity: 0.95;
+}}
+
+/* Strong override to make any remaining sidebar text white */
+QFrame#rightSidebar QPushButton, QFrame#rightSidebar QLabel, QFrame#rightSidebar * {{
+    color: {SIDEBAR_TEXT};
+}}
+
+/* Explicitly target the QLabel used for nav text and any QLabel inside sidebar items */
+QFrame#rightSidebar QLabel#sidebarItemText,
+QFrame#rightSidebar QPushButton#sidebarItem QLabel#sidebarItemText,
+QFrame#rightSidebar QPushButton#sidebarItem QLabel {{
+    color: {SIDEBAR_TEXT};
+}}
+
+/* Ensure section labels and profile/collapse labels are white in all states */
+QFrame#rightSidebar QPushButton#sidebarSection,
+QFrame#rightSidebar QPushButton#sidebarProfile,
+QFrame#rightSidebar QPushButton#sidebarCollapse {{
+    color: {SIDEBAR_TEXT};
+}}
+
+/* If any text is rendered via the button's own text instead of child QLabel */
+QFrame#rightSidebar QPushButton#sidebarItem {{
+    color: {SIDEBAR_TEXT};
 }}
 """

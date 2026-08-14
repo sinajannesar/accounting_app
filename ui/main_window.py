@@ -6,7 +6,7 @@ from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QParallelA
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import (
     QMainWindow, QTabWidget, QMenuBar, QMenu, QAction,
-    QStatusBar, QFileDialog, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QPushButton, QStyle, QLabel,
+    QStatusBar, QFileDialog, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QPushButton, QStyle, QLabel, QBoxLayout,
 )
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QSizePolicy
@@ -152,25 +152,58 @@ class MainWindow(QMainWindow):
             return lbl
 
         def add_nav_item(text, key, icon=None, indent=0):
-            btn = QPushButton(text)
+            # Use a QPushButton as a container but render icon+text using child QLabel
+            # This avoids relying on QPushButton.setIcon() which can interfere with
+            # text alignment across platforms.
+            btn = QPushButton()
             btn.setObjectName("sidebarItem")
             btn.setCheckable(True)
             btn.setProperty("navKey", key)
             btn.setProperty("fullText", text)
-            # ensure RTL layout for icon+text ordering and right-aligned text
             btn.setLayoutDirection(Qt.RightToLeft)
             btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            # Visual alignment and padding handled by central QSS in ui/styles.py
+            btn.setText("")
+
+            # inner layout: icon (QLabel) + text (QLabel) + stretch
+            inner = QHBoxLayout()
+            inner.setContentsMargins(8, 6, 8, 6)
+            inner.setSpacing(8)
+            inner.setDirection(QBoxLayout.RightToLeft)
+            btn.setLayout(inner)
+
+            icon_label = QLabel()
+            icon_label.setObjectName("sidebarItemIcon")
+            icon_label.setFixedSize(28, 28)
+            icon_label.setAlignment(Qt.AlignCenter)
+
+            # resolve icon pixmap
             if icon is None:
-                # fallback to generic icon file
                 icon_path = os.path.join(os.path.dirname(__file__), "icons", "report.svg")
-                ic = QIcon(icon_path) if os.path.exists(icon_path) else self.style().standardIcon(QStyle.SP_FileIcon)
+                icon_src = icon_path if os.path.exists(icon_path) else None
             elif isinstance(icon, QIcon):
-                ic = icon
+                icon_src = icon
             else:
-                ic = QIcon(icon)
-            btn.setIcon(ic)
-            btn.setIconSize(QSize(22, 22))
+                icon_src = icon
+
+            pix = None
+            try:
+                if isinstance(icon_src, QIcon):
+                    pix = icon_src.pixmap(QSize(22, 22))
+                elif isinstance(icon_src, str) and os.path.exists(icon_src):
+                    pix = QIcon(icon_src).pixmap(QSize(22, 22))
+            except Exception:
+                pix = None
+            if pix and not pix.isNull():
+                icon_label.setPixmap(pix)
+
+            text_label = QLabel(text)
+            text_label.setObjectName("sidebarItemText")
+            text_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+            inner.addWidget(icon_label)
+            inner.addWidget(text_label)
+            inner.addStretch()
+
             btn.clicked.connect(lambda _, k=key: self.show_view(k))
             sidebar_layout.addWidget(btn)
             return btn
@@ -390,12 +423,17 @@ class MainWindow(QMainWindow):
         if self._sidebar_collapsed:
             # apply visuals immediately: hide labels, set tooltips
             for btn in getattr(self, '_sidebar_buttons', []):
-                full = btn.property('fullText') or btn.text()
+                full = btn.property('fullText') or ""
                 btn.setProperty('fullText', full)
-                btn.setText("")
+                # hide the text label and center the icon label
+                text_lbl = btn.findChild(QLabel, "sidebarItemText")
+                icon_lbl = btn.findChild(QLabel, "sidebarItemIcon")
+                if text_lbl:
+                    text_lbl.hide()
+                if icon_lbl:
+                    icon_lbl.setAlignment(Qt.AlignCenter)
                 btn.setToolTip(full)
                 btn.setFixedHeight(48)
-                btn.setIconSize(QSize(22, 22))
             # logo compact
             logo = self.findChild(QPushButton, "sidebarLogo")
             if logo:
@@ -479,12 +517,23 @@ class MainWindow(QMainWindow):
             if collapsed:
                 # store full text and hide label (styling via stylesheet)
                 btn.setProperty('fullText', full)
-                btn.setText("")
+                text_lbl = btn.findChild(QLabel, "sidebarItemText")
+                icon_lbl = btn.findChild(QLabel, "sidebarItemIcon")
+                if text_lbl:
+                    text_lbl.hide()
+                if icon_lbl:
+                    icon_lbl.setAlignment(Qt.AlignCenter)
                 btn.setToolTip(full)
                 btn.setFixedHeight(48)
-                btn.setIconSize(QSize(22, 22))
             else:
-                btn.setText(full)
+                # show text label and restore layout/alignment
+                text_lbl = btn.findChild(QLabel, "sidebarItemText")
+                icon_lbl = btn.findChild(QLabel, "sidebarItemIcon")
+                if text_lbl:
+                    text_lbl.show()
+                    text_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                if icon_lbl:
+                    icon_lbl.setAlignment(Qt.AlignVCenter | Qt.AlignRight)
                 btn.setToolTip("")
                 btn.setFixedHeight(36)
 

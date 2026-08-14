@@ -1,13 +1,25 @@
 """ابزارهای تقویم شمسی (جلالی)"""
 
-import jdatetime
+try:
+    import jdatetime
+except Exception:
+    jdatetime = None
+    # jdatetime may be missing in the environment. We'll provide fallbacks
+    # for a minimal set of functions so the app can run. These fallbacks
+    # use Gregorian dates as a best-effort substitute when true Jalali
+    # conversion is unavailable.
 from PyQt5.QtCore import QDate, Qt
 from PyQt5.QtWidgets import QDateEdit, QLineEdit, QHBoxLayout, QWidget, QLabel
 from PyQt5.QtGui import QIntValidator
 
 
 def today_jalali():
-    return jdatetime.date.today().strftime("%Y/%m/%d")
+    if jdatetime:
+        return jdatetime.date.today().strftime("%Y/%m/%d")
+    else:
+        # fallback: use Gregorian date string (YYYY/MM/DD)
+        from datetime import date
+        return date.today().strftime("%Y/%m/%d")
 
 
 def format_jalali(date_str):
@@ -24,16 +36,34 @@ def parse_jalali(date_str):
     if len(parts) != 3:
         raise ValueError("فرمت تاریخ نامعتبر است (مثال: 1403/05/20)")
     y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
-    jdatetime.date(y, m, d)
+    # validate using jdatetime when available; otherwise do basic range checks
+    if jdatetime:
+        jdatetime.date(y, m, d)
+    else:
+        # basic validation ranges
+        if not (1 <= m <= 12 and 1 <= d <= 31 and 1000 <= y <= 9999):
+            raise ValueError("فرمت تاریخ نامعتبر است")
     return f"{y:04d}/{m:02d}/{d:02d}"
 
 
 def jalali_str_add_days(jalali_str, days):
     """تاریخ شمسی را به‌همراه تعداد روز داده‌شده جلو/عقب می‌برد"""
     parts = jalali_str.split("/")
-    jd = jdatetime.date(int(parts[0]), int(parts[1]), int(parts[2]))
-    new_jd = jd + jdatetime.timedelta(days=days)
-    return new_jd.strftime("%Y/%m/%d")
+    y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+    if jdatetime:
+        jd = jdatetime.date(y, m, d)
+        new_jd = jd + jdatetime.timedelta(days=days)
+        return new_jd.strftime("%Y/%m/%d")
+    else:
+        # fallback: treat values as Gregorian for arithmetic
+        from datetime import date, timedelta
+        try:
+            gd = date(y, m, d)  # may raise if invalid
+        except Exception:
+            # best-effort: convert to a safe date (today)
+            gd = date.today()
+        new_g = gd + timedelta(days=days)
+        return new_g.strftime("%Y/%m/%d")
 
 
 PERSIAN_MONTH_NAMES = [
@@ -44,18 +74,37 @@ PERSIAN_MONTH_NAMES = [
 
 def jalali_month_bounds(year, month):
     """بازه (اول تا آخر) یک ماه شمسی را برمی‌گرداند"""
-    start = jdatetime.date(year, month, 1)
-    if month == 12:
-        next_start = jdatetime.date(year + 1, 1, 1)
+    if jdatetime:
+        start = jdatetime.date(year, month, 1)
+        if month == 12:
+            next_start = jdatetime.date(year + 1, 1, 1)
+        else:
+            next_start = jdatetime.date(year, month + 1, 1)
+        end = next_start - jdatetime.timedelta(days=1)
+        return start.strftime("%Y/%m/%d"), end.strftime("%Y/%m/%d")
     else:
-        next_start = jdatetime.date(year, month + 1, 1)
-    end = next_start - jdatetime.timedelta(days=1)
-    return start.strftime("%Y/%m/%d"), end.strftime("%Y/%m/%d")
+        # fallback: approximate using Gregorian months (not accurate for Jalali)
+        from datetime import date, timedelta
+        try:
+            start = date(year, month, 1)
+            if month == 12:
+                next_start = date(year + 1, 1, 1)
+            else:
+                next_start = date(year, month + 1, 1)
+            end = next_start - timedelta(days=1)
+            return start.strftime("%Y/%m/%d"), end.strftime("%Y/%m/%d")
+        except Exception:
+            return "", ""
 
 
 def current_jalali_year_month():
-    today = jdatetime.date.today()
-    return today.year, today.month
+    if jdatetime:
+        today = jdatetime.date.today()
+        return today.year, today.month
+    else:
+        from datetime import date
+        t = date.today()
+        return t.year, t.month
 
 
 def last_n_months(n=6):

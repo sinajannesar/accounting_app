@@ -2,15 +2,31 @@
 
 from pathlib import Path
 
-from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment, PatternFill
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+try:
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+    _OPENPYXL_AVAILABLE = True
+except Exception:
+    Workbook = None
+    Font = Alignment = PatternFill = None
+    _OPENPYXL_AVAILABLE = False
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    _REPORTLAB_AVAILABLE = True
+except Exception:
+    colors = None
+    A4 = landscape = None
+    getSampleStyleSheet = ParagraphStyle = None
+    mm = None
+    pdfmetrics = TTFont = None
+    SimpleDocTemplate = Table = TableStyle = Paragraph = Spacer = None
+    _REPORTLAB_AVAILABLE = False
 
 from utils.num2words_fa import amount_to_words_rial
 
@@ -26,6 +42,8 @@ def _format_number(n):
 
 
 def export_to_excel(file_path, title, headers, rows, totals=None):
+    if not _OPENPYXL_AVAILABLE:
+        raise RuntimeError("openpyxl is not installed. Install it with: pip install openpyxl")
     wb = Workbook()
     ws = wb.active
     ws.title = title[:31]
@@ -83,6 +101,8 @@ def _register_persian_font():
 
 
 def export_to_pdf(file_path, title, headers, rows, totals=None):
+    if not _REPORTLAB_AVAILABLE:
+        raise RuntimeError("reportlab is not installed. Install it with: pip install reportlab")
     font_name = _register_persian_font()
     doc = SimpleDocTemplate(
         file_path,
