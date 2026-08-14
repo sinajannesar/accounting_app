@@ -403,33 +403,43 @@ QPushButton#sidebarItem:hover {{
     color: {SIDEBAR_TEXT};
 }}
 QPushButton#sidebarItem:checked {{
-    background-color: {COLOR_PRIMARY_LIGHT};
-    color: {COLOR_PRIMARY};
-    /* RTL: indicator on the right */
+    /* stronger contrast for active item */
+    background-color: {SIDEBAR_ACTIVE};
+    color: white;
+    /* RTL: indicator on the right edge */
     border-right: 4px solid {COLOR_PRIMARY};
+    padding-right: 10px;
 }}
 
-/* Collapsed sidebar: use compact rounded active container for checked item */
+/* Collapsed sidebar: compact rounded active chip centered */
 QFrame#rightSidebar[collapsed="true"] QPushButton#sidebarItem:checked {{
     background-color: {COLOR_PRIMARY};
     color: white;
-    border-radius: 10px;
-    margin-right: 6px;
+    border-radius: 22px;
+    min-width: 44px;
+    max-width: 44px;
+    min-height: 44px;
+    max-height: 44px;
+    margin: 6px auto;
+    padding: 0;
 }}
 
 /* Expanded vs Collapsed layouts for sidebar items */
 QFrame#rightSidebar[collapsed="false"] QPushButton#sidebarItem {{
     text-align: right;
     padding-right: 14px;
-    min-height: 36px;
+    min-height: 44px;
+    max-height: 44px;
     color: {SIDEBAR_TEXT};
 }}
 
 QFrame#rightSidebar[collapsed="true"] QPushButton#sidebarItem {{
     text-align: center;
-    padding: 10px 0;
-    min-height: 48px;
+    padding: 6px 0;
+    min-height: 44px;
+    max-height: 44px;
     color: {SIDEBAR_TEXT};
+    min-width: 44px;
 }}
 
 /* Collapse button styling */

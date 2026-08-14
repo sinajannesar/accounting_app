@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QStatusBar, QFileDialog, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QPushButton, QStyle, QLabel,
 )
 from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtWidgets import QSizePolicy
 import os
 
 from database.db_manager import DatabaseManager
@@ -146,6 +147,8 @@ class MainWindow(QMainWindow):
             lbl = QPushButton(text)
             lbl.setObjectName("sidebarSection")
             lbl.setEnabled(False)
+            lbl.setLayoutDirection(Qt.RightToLeft)
+            lbl.setStyleSheet("text-align: right; padding: 8px 12px;")
             sidebar_layout.addWidget(lbl)
             return lbl
 
@@ -155,6 +158,12 @@ class MainWindow(QMainWindow):
             btn.setCheckable(True)
             btn.setProperty("navKey", key)
             btn.setProperty("fullText", text)
+            # ensure RTL layout for icon+text ordering and right-aligned text
+            btn.setLayoutDirection(Qt.RightToLeft)
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            # enforce right-aligned text for Persian UI
+            existing = btn.styleSheet() or ""
+            btn.setStyleSheet(existing + "text-align: right; padding-right: 14px;")
             if icon is None:
                 # fallback to generic icon file
                 icon_path = os.path.join(os.path.dirname(__file__), "icons", "report.svg")
@@ -246,29 +255,8 @@ class MainWindow(QMainWindow):
         breadcrumb.setObjectName("breadcrumbLabel")
         breadcrumb.setText("")
         header_layout.addWidget(breadcrumb, 1)
-        # actions (left side)
-        actions_box = QHBoxLayout()
-        icons_dir = os.path.join(os.path.dirname(__file__), "icons")
-        bell_path = os.path.join(icons_dir, "bell.svg")
-        help_path = os.path.join(icons_dir, "help.svg")
-        settings_path = os.path.join(icons_dir, "settings.svg")
-
-        notif = QPushButton("")
-        notif.setObjectName("headerAction")
-        if os.path.exists(bell_path):
-            notif.setIcon(QIcon(bell_path))
-        help_btn = QPushButton("")
-        help_btn.setObjectName("headerAction")
-        if os.path.exists(help_path):
-            help_btn.setIcon(QIcon(help_path))
-        settings_btn = QPushButton("")
-        settings_btn.setObjectName("headerAction")
-        if os.path.exists(settings_path):
-            settings_btn.setIcon(QIcon(settings_path))
-        actions_box.addWidget(notif)
-        actions_box.addWidget(help_btn)
-        actions_box.addWidget(settings_btn)
-        header_layout.addLayout(actions_box)
+        # header shows breadcrumb/title only (remove icon buttons)
+        header_layout.addSpacing(6)
 
         right_layout.addWidget(header)
         right_layout.addWidget(self.stack, 1)
@@ -453,11 +441,15 @@ class MainWindow(QMainWindow):
         # width
         if collapsed:
             w = 76
+            # enforce min/max to collapsed width and prefer fixed-like sizing
             self._sidebar.setMinimumWidth(w)
             self._sidebar.setMaximumWidth(w)
+            self._sidebar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         else:
             self._sidebar.setMinimumWidth(240)
             self._sidebar.setMaximumWidth(260)
+            # restore flexible sizing
+            self._sidebar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
         # logo behaviour
         logo = self.findChild(QPushButton, "sidebarLogo")

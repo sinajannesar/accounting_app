@@ -1,7 +1,9 @@
 # ui/journal_widget.py — FULL FILE, replace entirely
 """ماژول ثبت اسناد حسابداری"""
 
+import os
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QTableWidget,
     QTableWidgetItem, QLineEdit, QDialog, QFormLayout, QComboBox,

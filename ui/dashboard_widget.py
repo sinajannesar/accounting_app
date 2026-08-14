@@ -40,12 +40,15 @@ class MetricCard(QFrame):
         if icon:
             icon_label = QLabel()
             icon_label.setProperty("role", "cardIcon")
-            # if icon is a path or QIcon, load it
+            # if icon is a QIcon or a path, load it via QIcon to support SVG
+            pix = QPixmap()
             if isinstance(icon, QIcon):
                 pix = icon.pixmap(20, 20)
             else:
                 icon_path = icon if isinstance(icon, str) and os.path.exists(icon) else None
-                pix = QPixmap(icon_path) if icon_path else QPixmap()
+                if icon_path:
+                    ic = QIcon(icon_path)
+                    pix = ic.pixmap(20, 20)
             if not pix.isNull():
                 icon_label.setPixmap(pix)
             icon_label.setStyleSheet(f"background-color: {color}; border-radius: {RADIUS_SM}px; padding: 6px;")
