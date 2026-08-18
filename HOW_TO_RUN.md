@@ -1,106 +1,103 @@
-راهنمای سریع — How_To_Run
+    راهنمای گام‌به‌گام (HOW_TO_RUN.md)
 
-این فایل تمام مراحلی که لازم است تا روی یک ماشین ویندوز (مثلاً ویندوز 11 خواهرِ شما) خروجی (installer) بسازید و آن را برای مشتری ضعیف ارسال کنید را مرحله‌به‌مرحله توضیح می‌دهد.
+    هدف
+    - راهنمای ساده و دقیق برای ساخت «پوشهٔ اجرایی (onedir)» و در صورت تمایل «نصب‌کنندهٔ ویندوز (installer)» از پروژهٔ حسابداری، با استفاده از فایل خودکار tools\auto_build_and_pack.bat. این راهنما مخصوص کسی است که دانش فنی کمی دارد (مثل خواهرت) و شامل چک‌لیست و حل مشکلات رایج است.
 
-خلاصهٔ سریع
-- هدف: ساخت یک بستهٔ نصبی (Hesabdari_Setup.exe) که مشتری فقط آن را اجرا کند و نیازی به نصب پایتون نداشته باشد.
-- ایده: روی ماشین ویندوزی (ترجیحاً 32-bit Python روی ویندوز 11) یک onedir با PyInstaller بسازید، سپس با NSIS یک installer ایجاد کنید.
+    خلاصهٔ سریع
+    - روی یک سیستم ویندوزی (ترجیحاً با Python 32-bit نصب‌شده) اجرا کن.
+    - tools\auto_build_and_pack.bat تقریباً همهٔ مراحل را خودکار انجام می‌دهد: ساخت virtualenv، نصب وابستگی‌ها، اجرای PyInstaller (--onedir --noupx) و در صورت وجود NSIS ساخت installer.
 
-فایل‌ها و اسکریپت‌های آماده در این repo
-- tools\build_windows_32.py  — اسکریپت کمکی برای آماده‌سازی باینری‌ها و فراخوانی PyInstaller (اجرای دستی روی ویندوز توصیه می‌شود).
-- tools\build_windows_32.bat — wrapper ساده برای اجرا روی ویندوز.
-- tools\installer.nsi — اسکریپت NSIS برای ساخت installer که محتویات dist\Hesabdari را کپی می‌کند و شورتکات می‌سازد.
-- tools\build_installer.bat — wrapper برای اجرای makensis بر روی tools\installer.nsi.
-- tools\compare_excels.py — ابزار مقایسهٔ دقیق سلول‌به‌سلول دو فایل Excel برای تایید خروجی‌ها.
+    فایل‌های مرتبط (در repo)
+    - tools\auto_build_and_pack.bat  ← اجرای خودکار کل جریان ساخت (توصیه‌شده)
+    - tools\build_windows_32.bat    ← اسکریپت کمکی دیگر برای ویندوز
+    - tools\installer.nsi           ← اسکریپت NSIS برای تولید Hesabdari_Setup.exe
+    - tools\build_installer.bat     ← wrapper برای makensis
+    - tools\compare_excels.py       ← مقایسهٔ سلول‌به‌سلول فایل‌های اکسل (برای تضمین عدم تغییر محاسبات)
 
-پیش‌نیازها (روی ماشینِ خواهر)
-1. Python 32-bit (توصیه: 3.10 یا 3.8) نصب شده و Add to PATH زده شود.
-   دانلود از: https://www.python.org/downloads/windows/ (نسخهٔ x86 installer)
-2. NSIS (برای ساخت installer): https://nsis.sourceforge.io/Download — مطمئن شوید makensis در PATH است.
-3. (اختیاری، اما توصیه‌شده) Visual C++ Redistributable x86 (2015–2022): دانلود و قرار دهید در ریشهٔ repo با نام vc_redist.x86.exe تا installer آن را خودکار نصب کند.
+    پیش‌نیازهای قابل‌بررسی قبل از شروع
+    1) Python 32-bit نصب شده و در PATH باشد (توصیه: 3.10 یا 3.11 x86).
+    - دانلود: https://www.python.org/downloads/windows/ (Windows x86 installer)
+    2) NSIS (اختیاری، برای ساخت installer .exe). اگر نصب نیست، باز هم onedir ساخته می‌شود.
+    - دانلود: https://nsis.sourceforge.io/Download
+    3) (اختیاری) اگر می‌خواهی Visual C++ Redistributable را همراه installer بفرستی، فایل vc_redist.x86.exe را دانلود کن و در ریشهٔ repo قرار بده.
 
-دستورالعمل‌های قدم‌به‌قدم (CMD)
-1) باز کردن CMD یا PowerShell با دسترسی معمولی یا admin (برای نصب redist ممکن است admin لازم باشد).
+    نکته دربارهٔ معماری (خیلی مهم)
+    - برای بیشترین سازگاری با سیستم‌های قدیمی و ضعیف، توصیه می‌شود از Python نسخهٔ 32-bit برای ساخت استفاده شود. اگر سیستمِ سازنده 64-bit است و Python 64-bit نصب است، خروجی ممکن است در برخی Windowsهای خیلی قدیمی مشکل داشته باشد.
 
-2) بررسی پایتون و معماریِ آن (اطمینان از 32-bit):
-   python --version
-   python -c "import struct,platform; print(platform.architecture(), struct.calcsize('P')*8)"
-   خروجی باید نشان دهد 32-bit یا struct.calcsize('P')*8 = 32.  (اگر 64-bit بود و می‌خواهید 32-bit بسازید، نصب Python x86 لازم است.)
+    دستورالعملِ دقیق (مخصوص خواهر یا کاربر کم‌تجربه)
+    1) پوشهٔ پروژه را روی سیستم ویندوز قرار بده (با کپی یا استخراج ZIP).
+    2) CMD (Command Prompt) را باز کن. برای نصب VC++ Redistributable ممکن است لازم باشد "Run as administrator" انجام شود، اما برای ساخت معمولی نیازی به admin نیست.
+    3) به پوشهٔ پروژه برو:
+    cd C:\مسیر\به\پروژه
 
-3) رفتن به پوشه پروژه (مثال):
-   cd C:\path\to\python-app-performance-optimization
+    4) اجرای خودکار همهٔ مراحل (ساده‌ترین راه)
+    - فقط این دستور را اجرا کن:
+    tools\auto_build_and_pack.bat
 
-4) ساخت virtualenv 32-bit و فعال‌سازی:
-   python -m venv venv32
-   venv32\Scripts\activate
+    چه کار می‌کند؟
+    - بررسی می‌کند Python وجود دارد و معماری آن را نشان می‌دهد.
+    - اگر virtualenv (venv32) ساخته نشده باشد آن را می‌سازد و فعال می‌کند.
+    - pip را آپدیت می‌کند و وابستگی‌ها را از requirements.txt نصب می‌کند.
+    - PyInstaller را نصب و اجرا می‌کند با گزینه‌های --onedir و --noupx تا پوشهٔ dist\Hesabdari ساخته شود.
+    - اگر makensis (NSIS) در PATH وجود داشته باشد، به‌صورت خودکار tools\build_installer.bat را اجرا می‌کند تا dist_installer\Hesabdari_Setup.exe ساخته شود.
 
-5) آپدیت pip و نصب وابستگی‌ها و PyInstaller:
-   python -m pip install --upgrade pip setuptools wheel
-   pip install -r requirements.txt
-   pip install pyinstaller
+    نکته: اگر در میانهٔ کار از شما پرسشی شد (مثلاً معماری 64-bit)، معمولاً می‌توانید دستورالعمل روی صفحه را دنبال کنید یا از گزینهٔ پیش‌فرض استفاده کنید؛ اگر مطمئن نیستی عکس یا متن خطا را بفرست تا راهنمایی کنم.
 
-6) ساخت onedir با PyInstaller (این دستور یک پوشهٔ dist\Hesabdari می‌سازد):
-   pyinstaller --onedir --noconfirm --windowed --name Hesabdari --noupx main.py
+    5) اگر می‌خواهی مراحل را دستی انجام دهی (گام‌های تفصیلی):
+    - ساخت virtualenv و فعال‌سازی:
+     python -m venv venv32
+     venv32\Scripts\activate
 
-   نکات:
-   - اگر از قبل فایل build.spec دارید، می‌توانید از آن استفاده کنید: pyinstaller build.spec
-   - پیغام‌ها را بخوانید؛ اگر missing package داشت، آن را نصب کنید (pip install <package>) و دوباره امتحان کنید.
+    - آپدیت pip و نصب وابستگی‌ها:
+     python -m pip install --upgrade pip setuptools wheel
+     pip install -r requirements.txt
+     pip install pyinstaller
 
-7) بررسی خروجی PyInstaller:
-   dir dist\Hesabdari
-   انتظار داریم فایل Hesabdari.exe و python3x.dll و فولدرهایی مانند platforms و فایل‌های PyQt5 وجود داشته باشند.
+    - اجرای PyInstaller (اگر می‌خواهی مستقیم اجرا کنی):
+     pyinstaller --onedir --noconfirm --windowed --name Hesabdari --noupx main.py
 
-8) (اختیاری اما توصیه‌شده) قرار دادن Visual C++ Redistributable:
-   - اگر vc_redist.x86.exe را دانلود کردید، فایل را در مسیر ریشهٔ repo قرار دهید (همسطح پوشه tools). اسکریپت installer آن را شناسایی و نصب کرده و به‌صورت ساکت اجرا می‌کند.
+    - ساخت installer (در صورت نصب NSIS):
+     makensis tools\installer.nsi
+     یا
+     tools\build_installer.bat
 
-9) ساخت installer با NSIS:
-   - ابتدا مطمئن شوید makensis در PATH است:
-       makensis -VERSION
-   - سپس اجرا:
-       makensis tools\installer.nsi
-     یا با wrapper:
-       tools\build_installer.bat
+    خروجی‌ها و محلِ آن‌ها
+    - پوشهٔ اجرایی (همیشه ساخته می‌شود): dist\Hesabdari
+     - داخلش باید Hesabdari.exe و فایل‌های وابسته (python3x.dll و پوشه‌های لازم) باشد.
+    - فایل نصبی (در صورت وجود NSIS): dist_installer\Hesabdari_Setup.exe
 
-10) خروجی نهایی:
-    dist_installer\Hesabdari_Setup.exe
+    تست سریع برای اطمینان از کارکرد (پس از ساخت)
+    1) اگر dist\Hesabdari هست: در File Explorer وارد آن شو و دوبار روی Hesabdari.exe کلیک کن؛ برنامه باید باز شود.
+    2) اگر installer ساخته شده: installer را اجرا و برنامه را نصب کن. سپس برنامه نصب‌شده را اجرا کن.
+    3) داخل برنامه یک گزارش ساده بساز و Export به Excel بگیر.
+    4) در صورتِ داشتن خروجی قبل/بعد، برای اطمینان از عدم تغییر در اعداد:
+    python tools\compare_excels.py before.xlsx after.xlsx
 
-11) تست installer (در همان ماشین خواهر):
-    - دبل‌کلیک روی dist_installer\Hesabdari_Setup.exe و نصب را کامل کن.
-    - پس از نصب، از شورتکات دسکتاپ یا منوی استارت برنامه را اجرا کن.
-    - در برنامه یک گزارش بساز، Export Excel و PDF بگیر، و مطمئن شو همهٔ عملکردها سالم هستند.
+    اگر خطایی دیدی چه کار کنی (عیب‌یابی)
+    - خطا: "python is not recognized"
+     - آشناترین علت: Python در PATH نیست. Python x86 را نصب و گزینه "Add to PATH" را فعال کن.
 
-فعال‌سازی حالت کم‌منابع (Low Resource) — برای مشتریان ضعیف
-- موقت: قبل از اجرا در CMD یا در خواهرِت برای تست، می‌توانی متغیر محیطی را ست کنی:
-  set LOW_RESOURCE=1
-  سپس اجرا Hesabdari.exe یا نصب و اجرا از شورتکات.
-- دائمی: در برنامه -> Settings -> تیک "حالت کم‌منابع" را بزن و ذخیره کن (نیاز به ری‌استارت برنامه دارد).
+    - خطا: missing DLL مانند api-ms-win-core-*.dll یا pythonXX.dll
+     - راه‌حل: مطمئن شو در هنگام ساخت از Python 32-bit استفاده شده؛ اگر نیاز به Visual C++ Redistributable است، vc_redist.x86.exe را در کنار repo قرار بده یا آن را جداگانه نصب کن.
 
-اعتبارسنجی خروجی‌های اکسل (تضمین عدم تغییر اعداد)
-- اگر می‌خواهی مطمئن شوی اکسل‌های تولیدی قبل/بعد دقیقاً یکسان هستند، از ابزار زیر استفاده کن:
-  python tools\compare_excels.py before.xlsx after.xlsx
-- اگر فایل‌ها identical باشند پیام "Files are identical (cell-by-cell)" نمایش داده می‌شود.
+    - خطا: PyInstaller بسته‌ای را پیدا نکرد
+     - خطا معمولاً نامِ پکیج را نشان می‌دهد؛ آن بسته را pip install کن و دوباره pyinstaller را اجرا کن.
 
-عیب‌یابی سریع (خطاهای رایج و راه‌حل)
-- خطا: "api-ms-win-core-path-l1-1-0.dll is missing"
-  راه‌حل: نصب Visual C++ Redistributable x86 یا اجرای Windows Update. بهتر است vc_redist.x86.exe را همراه installer بفرستی.
+    - اگر makensis (NSIS) نصب نیست
+     - پیام در اسکریپت نمایش داده می‌شود؛ در این حالت فقط پوشهٔ dist ساخته می‌شود. می‌توانی پوشهٔ dist\Hesabdari را ZIP کنی و به مشتری بدهی.
 
-- خطا: "Failed to load Python DLL ... pythonXX.dll"
-  راه‌حل: اطمینان از اینکه dist\Hesabdari شامل python3x.dll است. اگر نیست، با Python x86 در build machine دوباره PyInstaller را اجرا کن.
+    نکات مخصوصِ سیستم‌های خیلی ضعیف (هدف نهایی)
+    - استفاده از onedir بهتر از onefile است (ما از --onedir استفاده کردیم) زیرا برنامه بدون فرایند استخراج سریع‌تر اجرا می‌شود و فشار CPU کمتر است.
+    - برای مشتری نهایی، توصیه می‌شود installer را با vc_redist.x86.exe همراه کنی تا خطاهای DLL کمتر رخ دهد.
+    - حالت Low Resource: برای مشتریانی با رم کم یا CPU ضعیف، قبل از اجرای برنامه می‌توان متغیر محیطی را قرار داد:
+     set LOW_RESOURCE=1
+     یا از داخل Settings برنامه "Low Resource Mode" را فعال کن.
 
-- خطا: آنتی‌ویروس جلوی اجرای onefile یا استخراج فایل‌ها را می‌گیرد
-  راه‌حل: استفاده از onedir به‌جای onefile (که ما همین کار را کردیم). در صورت مشکل AV نیاز به whitelist یا ارسال دستورالعمل فراخوانی AV است.
+    چک‌لیست نهایی (برای تیک زدن قبل از ارسال به مشتری)
+    [ ] Python x86 (32-bit) روی ماشین سازنده نصب شده و در PATH است
+    [ ] tools\auto_build_and_pack.bat اجرا شده و هیچ خطای حیاتی نداشته
+    [ ] پوشهٔ dist\Hesabdari وجود دارد و Hesabdari.exe قابل اجراست
+    [ ] (در صورت نیاز) dist_installer\Hesabdari_Setup.exe ساخته شده
+    [ ] در برنامه export اکسل تست شده و مقادیر صحیح نمایش داده می‌شوند
 
-چک‌لیست ساده برای خواهرِت (تیک‌زنی)
-1. [ ] Python x86 نصب شد و در PATH است
-2. [ ] venv ساخته و فعال شد (venv32)
-3. [ ] pip install -r requirements.txt  انجام شد
-4. [ ] pyinstaller command اجرا شد و dist\Hesabdari ساخته شد
-5. [ ] (اختیاری) vc_redist.x86.exe کنار repo قرار گرفت
-6. [ ] makensis اجرا شد و dist_installer\Hesabdari_Setup.exe تولید شد
-7. [ ] روی همان ماشین نصب و اجرای آزمایشی انجام شد (باز کردن، export)
-
-اگر خواستی من می‌توانم یک اسکریپت batch بسازم که بیشتر این مراحل را اتومات کند (اما نیاز است Python x86 و NSIS از پیش نصب شده باشند). می‌خواهی من یک .bat اتوماتیک برای اجرا در ویندوز خواهر بسازم؟
-
-پایان
-
-اگر هر مرحله را اجرا کردی و به خطا برخوردی، خروجی CMD یا عکس پنجره خطا و لیست فایل‌های پوشه dist\Hesabdari را بفرست تا دقیق‌تر راهنمایی کنم. موفق باشی!
+    اگر خواستی این نسخهٔ HOW_TO_RUN.md را همین‌جا ذخیره کنم و برای خواهر یک فایل متنی سادهٔ "HOW_TO_RUN_FOR_SISTER.txt" اضافه کنم تا مستقیم بفرستی، بگو تا اضافه کنم. همچنین هر زمان که خروجی CMD یا ارور دیدی، آن را اینجا بفرست تا دقیق‌تر کمک کنم.
