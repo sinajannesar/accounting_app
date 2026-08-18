@@ -111,7 +111,7 @@ class MainWindow(QMainWindow):
         register_view("general_ledger", lambda: GeneralLedgerWidget(self.report_model))
         register_view("trial_balance", lambda: TrialBalanceWidget(self.report_model))
         register_view("income_statement", lambda: IncomeStatementWidget(self.report_model))
-        register_view("settings", lambda: SettingsWidget())
+        register_view("settings", lambda: SettingsWidget(self.db))
 
         # breadcrumb mapping for header
         self._breadcrumb_map = {
