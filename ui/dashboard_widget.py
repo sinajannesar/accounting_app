@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
 import os
 
 from ui.widgets import format_amount, apply_shadow
+from utils.config import low_resource_mode
 from ui.styles import (
     COLOR_CARD, COLOR_BORDER, COLOR_BORDER_STRONG, COLOR_TEXT, COLOR_TEXT_MUTED,
     COLOR_SUCCESS, COLOR_DANGER, COLOR_PRIMARY, COLOR_INFO,
@@ -42,15 +43,23 @@ class MetricCard(QFrame):
             icon_label.setProperty("role", "cardIcon")
             # if icon is a QIcon or a path, load it via QIcon to support SVG
             pix = QPixmap()
-            if isinstance(icon, QIcon):
-                pix = icon.pixmap(20, 20)
-            else:
-                icon_path = icon if isinstance(icon, str) and os.path.exists(icon) else None
-                if icon_path:
-                    ic = QIcon(icon_path)
-                    pix = ic.pixmap(20, 20)
-            if not pix.isNull():
-                icon_label.setPixmap(pix)
+            try:
+                if not low_resource_mode():
+                    if isinstance(icon, QIcon):
+                        pix = icon.pixmap(20, 20)
+                    else:
+                        icon_path = icon if isinstance(icon, str) and os.path.exists(icon) else None
+                        if icon_path:
+                            ic = QIcon(icon_path)
+                            pix = ic.pixmap(20, 20)
+                    if not pix.isNull():
+                        icon_label.setPixmap(pix)
+                else:
+                    # hide icon to save memory/cpu on low-resource systems
+                    icon_label.setVisible(False)
+            except Exception:
+                # any failure loading icons shouldn't stop the UI
+                icon_label.setVisible(False)
             icon_label.setStyleSheet(f"background-color: {color}; border-radius: {RADIUS_SM}px; padding: 6px;")
             icon_label.setFixedSize(40, 40)
             header.addWidget(icon_label, 0)
@@ -89,6 +98,16 @@ class MonthlyBarChart(QWidget):
         self.update()
 
     def paintEvent(self, event):
+        # In low-resource mode, skip complex painting and show a lightweight message
+        if low_resource_mode():
+            painter = QPainter(self)
+            painter.fillRect(self.rect(), QColor(COLOR_CARD))
+            painter.setPen(QPen(QColor(COLOR_CHART_TEXT)))
+            painter.setFont(QFont("Vazirmatn", 10))
+            painter.drawText(self.rect(), Qt.AlignCenter, "نمودار غیرفعال (حالت کم‌منابع)")
+            painter.end()
+            return
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.fillRect(self.rect(), QColor(COLOR_CARD))
@@ -271,7 +290,12 @@ class DashboardWidget(QWidget):
         else:
             self.cash_card.set_value("-")
 
+        # skip building chart data on low-resource systems to save CPU and DB queries
         chart_data = []
+        if low_resource_mode():
+            # leave chart_data empty so paintEvent shows lightweight message
+            self.chart.set_data([])
+            return
         for (y, m, label, d_from, d_to) in months:
             month_stmt = self.report_model.income_statement(d_from, d_to)
             chart_data.append({

@@ -84,21 +84,34 @@ class MainWindow(QMainWindow):
 
         # create views and register them in a map
         self.view_map = {}
+        # detect low-resource mode for UI adjustments (lazy icons, reduced effects)
+        from utils.config import low_resource_mode
+        try:
+            _low_resource = low_resource_mode(self.db)
+        except Exception:
+            _low_resource = False
 
-        def register_view(key, widget):
-            idx = self.stack.addWidget(widget)
-            self.view_map[key] = idx
+        # Register views lazily: store factory functions and only instantiate when shown.
+        self._view_factories = {}
+        def register_view(key, widget_or_factory):
+            if callable(widget_or_factory):
+                # store factory for lazy instantiation
+                self._view_factories[key] = widget_or_factory
+            else:
+                idx = self.stack.addWidget(widget_or_factory)
+                self.view_map[key] = idx
 
-        register_view("dashboard", DashboardWidget(self.report_model, self.journal_model, self.db))
-        register_view("accounts", AccountsWidget(self.account_model))
-        register_view("journal", JournalWidget(self.journal_model, self.account_model))
-        register_view("cash", CashWidget(self.db, self.journal_model, self.account_model))
-        register_view("subsidiary", SubsidiaryLedgerWidget(self.report_model, self.account_model))
-        register_view("detail_ledger", DetailLedgerWidget(self.report_model, self.account_model))
-        register_view("general_ledger", GeneralLedgerWidget(self.report_model))
-        register_view("trial_balance", TrialBalanceWidget(self.report_model))
-        register_view("income_statement", IncomeStatementWidget(self.report_model))
-        register_view("settings", SettingsWidget())
+        # use factories to avoid constructing heavy widgets at startup
+        register_view("dashboard", lambda: DashboardWidget(self.report_model, self.journal_model, self.db))
+        register_view("accounts", lambda: AccountsWidget(self.account_model))
+        register_view("journal", lambda: JournalWidget(self.journal_model, self.account_model))
+        register_view("cash", lambda: CashWidget(self.db, self.journal_model, self.account_model))
+        register_view("subsidiary", lambda: SubsidiaryLedgerWidget(self.report_model, self.account_model))
+        register_view("detail_ledger", lambda: DetailLedgerWidget(self.report_model, self.account_model))
+        register_view("general_ledger", lambda: GeneralLedgerWidget(self.report_model))
+        register_view("trial_balance", lambda: TrialBalanceWidget(self.report_model))
+        register_view("income_statement", lambda: IncomeStatementWidget(self.report_model))
+        register_view("settings", lambda: SettingsWidget())
 
         # breadcrumb mapping for header
         self._breadcrumb_map = {
@@ -137,9 +150,12 @@ class MainWindow(QMainWindow):
         # use consistent icon set for logo
         icons_dir = os.path.join(os.path.dirname(__file__), "icons")
         logo_path = os.path.join(icons_dir, "logo.svg")
-        if os.path.exists(logo_path):
-            logo.setIcon(QIcon(logo_path))
-            logo.setIconSize(QSize(28, 28))
+        if os.path.exists(logo_path) and not _low_resource:
+            try:
+                logo.setIcon(QIcon(logo_path))
+                logo.setIconSize(QSize(28, 28))
+            except Exception:
+                pass
         sidebar_layout.addWidget(logo)
 
         # Navigation groups and items
@@ -186,15 +202,19 @@ class MainWindow(QMainWindow):
                 icon_src = icon
 
             pix = None
-            try:
-                if isinstance(icon_src, QIcon):
-                    pix = icon_src.pixmap(QSize(22, 22))
-                elif isinstance(icon_src, str) and os.path.exists(icon_src):
-                    pix = QIcon(icon_src).pixmap(QSize(22, 22))
-            except Exception:
-                pix = None
-            if pix and not pix.isNull():
-                icon_label.setPixmap(pix)
+            if not _low_resource:
+                try:
+                    if isinstance(icon_src, QIcon):
+                        pix = icon_src.pixmap(QSize(22, 22))
+                    elif isinstance(icon_src, str) and os.path.exists(icon_src):
+                        pix = QIcon(icon_src).pixmap(QSize(22, 22))
+                except Exception:
+                    pix = None
+                if pix and not pix.isNull():
+                    icon_label.setPixmap(pix)
+            else:
+                # hide icon to reduce memory and avoid QPixmap allocations
+                icon_label.setVisible(False)
 
             text_label = QLabel(text)
             text_label.setObjectName("sidebarItemText")
@@ -241,16 +261,22 @@ class MainWindow(QMainWindow):
         collapse_btn.setObjectName("sidebarCollapse")
         collapse_btn.setCheckable(True)
         collapse_icon = os.path.join(os.path.dirname(__file__), "icons", "collapse.svg")
-        if os.path.exists(collapse_icon):
-            collapse_btn.setIcon(QIcon(collapse_icon))
-        collapse_btn.setIconSize(QSize(18, 18))
+        if os.path.exists(collapse_icon) and not _low_resource:
+            try:
+                collapse_btn.setIcon(QIcon(collapse_icon))
+                collapse_btn.setIconSize(QSize(18, 18))
+            except Exception:
+                pass
         sidebar_layout.addWidget(collapse_btn)
 
         profile = QPushButton()
         profile.setObjectName("sidebarProfile")
         profile_icon = os.path.join(os.path.dirname(__file__), "icons", "accounts.svg")
-        if os.path.exists(profile_icon):
-            profile.setIcon(QIcon(profile_icon))
+        if os.path.exists(profile_icon) and not _low_resource:
+            try:
+                profile.setIcon(QIcon(profile_icon))
+            except Exception:
+                pass
         profile.setFixedHeight(40)
         sidebar_layout.addWidget(profile)
 
