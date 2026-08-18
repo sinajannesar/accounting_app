@@ -326,8 +326,9 @@ class MainWindow(QMainWindow):
         self._sidebar_anim_min = QPropertyAnimation(self._sidebar, b"minimumWidth")
         self._sidebar_anim_max = QPropertyAnimation(self._sidebar, b"maximumWidth")
         for a in (self._sidebar_anim_min, self._sidebar_anim_max):
-            a.setDuration(240)
-            a.setEasingCurve(QEasingCurve.InOutCubic)
+            a.setDuration(0 if _low_resource else 240)
+            if not _low_resource:
+                a.setEasingCurve(QEasingCurve.InOutCubic)
             self._sidebar_anim_group.addAnimation(a)
 
         self.setCentralWidget(central)
