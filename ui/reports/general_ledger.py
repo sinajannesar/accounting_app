@@ -157,15 +157,19 @@ class GeneralLedgerWidget(QWidget):
             return
         title = "دفتر کل"
         headers = ["کد", "نام حساب", "جمع بدهکار", "جمع بستانکار", "مانده"]
-        rows = [
-            [acc["code"], acc["name"], acc["total_debit"], acc["total_credit"], acc["balance"]]
-            for acc in self._report_data
-        ]
+        # For export prefer streaming rows if low-resource mode is enabled to avoid OOM
+        from utils.config import low_resource_mode
+        lr = low_resource_mode(self.report_model.db)
+        if lr:
+            rows_iter = self.report_model.stream_general_ledger_rows(*self.date_range.get_range())
+        else:
+            rows_iter = ([acc["code"], acc["name"], acc["total_debit"], acc["total_credit"], acc["balance"]]
+                         for acc in self._report_data)
 
         if fmt == "excel":
             path, _ = QFileDialog.getSaveFileName(self, "ذخیره Excel", "", "Excel (*.xlsx)")
             if path:
-                export_to_excel(path, title, headers, rows)
+                export_to_excel(path, title, headers, rows_iter, low_memory=lr)
         else:
             path, _ = QFileDialog.getSaveFileName(self, "ذخیره PDF", "", "PDF (*.pdf)")
             if path:

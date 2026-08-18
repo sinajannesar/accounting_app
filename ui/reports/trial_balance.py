@@ -147,10 +147,16 @@ class TrialBalanceWidget(QWidget):
             ]
             totals = ["", "جمع", data["total_debit"], data["total_credit"], ""]
 
+        from utils.config import low_resource_mode
+        lr = low_resource_mode(self.report_model.db)
         if fmt == "excel":
             path, _ = QFileDialog.getSaveFileName(self, "ذخیره Excel", "", "Excel (*.xlsx)")
             if path:
-                export_to_excel(path, title, headers, rows, totals)
+                # If low-resource mode, pass rows as iterator and enable streaming path
+                if lr:
+                    export_to_excel(path, title, headers, (r for r in rows), totals, low_memory=True)
+                else:
+                    export_to_excel(path, title, headers, rows, totals)
         else:
             path, _ = QFileDialog.getSaveFileName(self, "ذخیره PDF", "", "PDF (*.pdf)")
             if path:

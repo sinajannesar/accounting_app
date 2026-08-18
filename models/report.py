@@ -99,6 +99,35 @@ class ReportModel:
                 })
         return result
 
+    def stream_general_ledger_rows(self, date_from=None, date_to=None):
+        """Yield rows for the general ledger as (code, name, total_debit, total_credit, balance).
+        This avoids loading movements into memory and is suitable for export in low-memory mode.
+        """
+        # Iterate accounts as a cursor to avoid fetching all into memory at once
+        cursor = self.db.conn.execute("SELECT id, code, name FROM accounts WHERE level = 2 AND is_active = 1 ORDER BY code")
+        for acc in cursor:
+            acc_id = acc[0]
+            code = acc[1]
+            name = acc[2]
+            child_ids = self.account_model.get_children_ids(acc_id)
+            if not child_ids:
+                continue
+            placeholders = ",".join("?" * len(child_ids))
+            query = f"SELECT COALESCE(SUM(jl.debit), 0) AS total_debit, COALESCE(SUM(jl.credit), 0) AS total_credit FROM journal_lines jl JOIN journal_entries je ON jl.journal_entry_id = je.id WHERE jl.account_id IN ({placeholders})"
+            params = list(child_ids)
+            if date_from:
+                query += " AND je.entry_date >= ?"
+                params.append(date_from)
+            if date_to:
+                query += " AND je.entry_date <= ?"
+                params.append(date_to)
+            row = self.db.conn.execute(query, params).fetchone()
+            total_debit = row[0] or 0
+            total_credit = row[1] or 0
+            balance = total_debit - total_credit
+            if total_debit != 0 or total_credit != 0:
+                yield [code, name, total_debit, total_credit, balance]
+
     def trial_balance(self, date_from=None, date_to=None, eight_column=False):
         accounts = self._reporting_accounts()
         rows = []

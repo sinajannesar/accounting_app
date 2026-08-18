@@ -124,9 +124,14 @@ class LedgerWidget(QWidget):
                 m["debit"], m["credit"], m["balance"],
             ])
         if fmt == "excel":
+            from utils.config import low_resource_mode
+            lr = low_resource_mode(self.report_model.db)
             path, _ = QFileDialog.getSaveFileName(self, "ذخیره Excel", "", "Excel (*.xlsx)")
             if path:
-                export_to_excel(path, title, headers, rows)
+                if lr:
+                    export_to_excel(path, title, headers, (r for r in rows), low_memory=True)
+                else:
+                    export_to_excel(path, title, headers, rows)
         else:
             path, _ = QFileDialog.getSaveFileName(self, "ذخیره PDF", "", "PDF (*.pdf)")
             if path:

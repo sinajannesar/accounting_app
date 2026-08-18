@@ -1,15 +1,11 @@
 """خروجی Excel و PDF"""
 
 from pathlib import Path
+import gc
 
-try:
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill
-    _OPENPYXL_AVAILABLE = True
-except Exception:
-    Workbook = None
-    Font = Alignment = PatternFill = None
-    _OPENPYXL_AVAILABLE = False
+_OPENPYXL_AVAILABLE = False
+Workbook = None
+Font = Alignment = PatternFill = None
 try:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4, landscape
@@ -41,47 +37,117 @@ def _format_number(n):
     return f"{int(n):,}"
 
 
-def export_to_excel(file_path, title, headers, rows, totals=None):
+def export_to_excel(file_path, title, headers, rows, totals=None, low_memory=False):
+    """Export to Excel.
+    If low_memory is True, use openpyxl write_only mode (streaming) which uses less RAM but
+    does not support full styling/column autosizing. Default behaviour is unchanged.
+    """
+    global _OPENPYXL_AVAILABLE, Workbook, Font, Alignment, PatternFill
     if not _OPENPYXL_AVAILABLE:
-        raise RuntimeError("openpyxl is not installed. Install it with: pip install openpyxl")
-    wb = Workbook()
-    ws = wb.active
-    ws.title = title[:31]
-    ws.sheet_view.rightToLeft = True
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, Alignment, PatternFill
+            _OPENPYXL_AVAILABLE = True
+        except Exception:
+            raise RuntimeError("openpyxl is not installed. Install it with: pip install openpyxl")
 
-    header_font = Font(bold=True)
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-    header_font_white = Font(bold=True, color="FFFFFF")
+    # Normal (full-featured) path
+    if not low_memory:
+        wb = Workbook()
+        try:
+            ws = wb.active
+            ws.title = title[:31]
+            try:
+                ws.sheet_view.rightToLeft = True
+            except Exception:
+                pass
 
-    ws.append([title])
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
-    ws["A1"].font = Font(bold=True, size=14)
-    ws["A1"].alignment = Alignment(horizontal="center")
+            header_font = Font(bold=True)
+            header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            header_font_white = Font(bold=True, color="FFFFFF")
 
-    ws.append([])
-    ws.append(headers)
-    for col_idx, _ in enumerate(headers, 1):
-        cell = ws.cell(row=3, column=col_idx)
-        cell.font = header_font_white
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
+            ws.append([title])
+            try:
+                ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+                ws["A1"].font = Font(bold=True, size=14)
+                ws["A1"].alignment = Alignment(horizontal="center")
+            except Exception:
+                # some environments may not support merge/styling; continue without failing
+                pass
 
-    for row in rows:
-        ws.append(row)
+            ws.append([])
+            ws.append(headers)
+            for col_idx, _ in enumerate(headers, 1):
+                try:
+                    cell = ws.cell(row=3, column=col_idx)
+                    cell.font = header_font_white
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal="center")
+                except Exception:
+                    pass
 
-    if totals:
+            for row in rows:
+                ws.append(row)
+
+            if totals:
+                ws.append([])
+                ws.append(totals)
+
+            try:
+                for col in ws.columns:
+                    max_len = 0
+                    col_letter = col[0].column_letter
+                    for cell in col:
+                        if cell.value:
+                            max_len = max(max_len, len(str(cell.value)))
+                    ws.column_dimensions[col_letter].width = min(max_len + 4, 40)
+            except Exception:
+                # column autosizing may not be available in some backends
+                pass
+
+            wb.save(file_path)
+        finally:
+            # help GC on low-memory systems
+            try:
+                del ws
+            except Exception:
+                pass
+            try:
+                del wb
+            except Exception:
+                pass
+            gc.collect()
+        return
+
+    # Low-memory (streaming) path: use write_only workbook
+    wb = Workbook(write_only=True)
+    try:
+        ws = wb.create_sheet(title=title[:31])
+        # write_only doesn't support sheet view or many styling options
+        ws.append([title])
         ws.append([])
-        ws.append(totals)
+        ws.append(headers)
+        # headers styling is skipped in streaming mode
 
-    for col in ws.columns:
-        max_len = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            if cell.value:
-                max_len = max(max_len, len(str(cell.value)))
-        ws.column_dimensions[col_letter].width = min(max_len + 4, 40)
+        # rows can be an iterator/generator or list
+        for row in rows:
+            ws.append(row)
 
-    wb.save(file_path)
+        if totals:
+            ws.append([])
+            ws.append(totals)
+
+        wb.save(file_path)
+    finally:
+        try:
+            del ws
+        except Exception:
+            pass
+        try:
+            del wb
+        except Exception:
+            pass
+        gc.collect()
 
 
 def _register_persian_font():
