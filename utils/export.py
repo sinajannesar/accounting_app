@@ -6,23 +6,11 @@ import gc
 _OPENPYXL_AVAILABLE = False
 Workbook = None
 Font = Alignment = PatternFill = None
-try:
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import mm
-    from reportlab.pdfbase import pdfmetrics
-    from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-    _REPORTLAB_AVAILABLE = True
-except Exception:
-    colors = None
-    A4 = landscape = None
-    getSampleStyleSheet = ParagraphStyle = None
-    mm = None
-    pdfmetrics = TTFont = None
-    SimpleDocTemplate = Table = TableStyle = Paragraph = Spacer = None
-    _REPORTLAB_AVAILABLE = False
+# Defer reportlab imports to functions to reduce startup time on low-resource systems
+_REPORTLAB_AVAILABLE = False
+colors = A4 = landscape = getSampleStyleSheet = ParagraphStyle = mm = None
+pdfmetrics = TTFont = None
+SimpleDocTemplate = Table = TableStyle = Paragraph = Spacer = None
 
 from utils.num2words_fa import amount_to_words_rial
 
@@ -151,6 +139,13 @@ def export_to_excel(file_path, title, headers, rows, totals=None, low_memory=Fal
 
 
 def _register_persian_font():
+    # Import pdffont utilities lazily to avoid requiring reportlab at module import time
+    try:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+    except Exception:
+        return "Helvetica"
+
     font_paths = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "C:/Windows/Fonts/tahoma.ttf",
@@ -167,8 +162,16 @@ def _register_persian_font():
 
 
 def export_to_pdf(file_path, title, headers, rows, totals=None):
-    if not _REPORTLAB_AVAILABLE:
+    # Import reportlab lazily
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    except Exception:
         raise RuntimeError("reportlab is not installed. Install it with: pip install reportlab")
+
     font_name = _register_persian_font()
     doc = SimpleDocTemplate(
         file_path,
@@ -234,6 +237,16 @@ def format_row_numbers(row, numeric_indices):
 
 def export_receipt_pdf(file_path, entry, company_name=None):
     """چاپ رسید تک‌سندی (فیش) شامل شماره سند، تاریخ، سررسید، شرح، سطرها و مبلغ به حروف"""
+    # Import reportlab pieces lazily
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    except Exception:
+        raise RuntimeError("reportlab is not installed. Install it with: pip install reportlab")
+
     font_name = _register_persian_font()
     doc = SimpleDocTemplate(
         file_path,
