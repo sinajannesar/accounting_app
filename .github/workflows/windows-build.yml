@@ -27,8 +27,10 @@ jobs:
 
       - name: Run auto build+pack (fixed)
         run: |
-          echo Running tools\\auto_build_and_pack_fixed.bat
-          call tools\\auto_build_and_pack_fixed.bat
+          echo Running tools\\auto_build_and_pack_fixed.bat > build.log 2>&1
+          call tools\\auto_build_and_pack_fixed.bat >> build.log 2>&1
+          echo EXIT_CODE=%ERRORLEVEL% >> build.log
+          type build.log
         shell: cmd
         timeout-minutes: 60
 
@@ -40,4 +42,5 @@ jobs:
           path: |
             dist/Hesabdari/**
             dist_installer/Hesabdari_Setup.exe
+            build.log
             || true
