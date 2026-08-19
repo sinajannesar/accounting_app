@@ -1,0 +1,43 @@
+name: Windows Build and Test
+
+on:
+  push:
+    branches:
+      - agents/python-app-performance-optimization
+  workflow_dispatch: {}
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.10 (x86)
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          architecture: 'x86'
+
+      - name: Show python info
+        run: |
+          python --version
+          python -c "import struct,platform; print(platform.architecture(), struct.calcsize('P')*8)"
+        shell: cmd
+
+      - name: Run auto build+pack (fixed)
+        run: |
+          echo Running tools\\auto_build_and_pack_fixed.bat
+          call tools\\auto_build_and_pack_fixed.bat
+        shell: cmd
+        timeout-minutes: 60
+
+      - name: Upload dist artifact (if exists)
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: hesabdari-dist
+          path: |
+            dist/Hesabdari/**
+            dist_installer/Hesabdari_Setup.exe
+            || true
