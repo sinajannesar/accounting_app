@@ -25,16 +25,55 @@ jobs:
           python -c "import struct,platform; print(platform.architecture(), struct.calcsize('P')*8)"
         shell: cmd
 
-      - name: Run auto build+pack (fixed)
+      - name: Create virtualenv (venv32)
         run: |
-          echo Running tools\\auto_build_and_pack_fixed.bat > build.log 2>&1
-          call tools\\auto_build_and_pack_fixed.bat >> build.log 2>&1
-          echo EXIT_CODE=%ERRORLEVEL% >> build.log
-          type build.log
+          python -m venv venv32
+          echo venv created
         shell: cmd
-        timeout-minutes: 60
 
-      - name: Upload dist artifact (if exists)
+      - name: Activate venv & upgrade pip
+        run: |
+          call venv32\Scripts\activate.bat
+          python -m pip install --upgrade pip setuptools wheel
+          pip --version
+        shell: cmd
+
+      - name: Install requirements
+        run: |
+          call venv32\Scripts\activate.bat
+          pip install -r requirements.txt > pip_install.log 2>&1 || (type pip_install.log & exit /b %ERRORLEVEL%)
+          type pip_install.log
+        shell: cmd
+        timeout-minutes: 20
+
+      - name: Install PyInstaller
+        run: |
+          call venv32\Scripts\activate.bat
+          pip install pyinstaller > pyinstaller_install.log 2>&1 || (type pyinstaller_install.log & exit /b %ERRORLEVEL%)
+          pyinstaller --version || echo pyinstaller not available
+          type pyinstaller_install.log
+        shell: cmd
+
+      - name: Run PyInstaller (debug)
+        run: |
+          call venv32\Scripts\activate.bat
+          pyinstaller --onedir --noconfirm --windowed --name Hesabdari --noupx --log-level=DEBUG main.py > pyinstaller_build.log 2>&1 || echo PYINSTALLER_EXIT=%ERRORLEVEL% > pyinstaller_build.log
+          type pyinstaller_build.log
+        shell: cmd
+        timeout-minutes: 30
+
+      - name: Show dist folder (if any)
+        if: always()
+        run: |
+          if exist dist\Hesabdari (
+            echo dist exists, listing contents:
+            dir dist\Hesabdari
+          ) else (
+            echo dist\Hesabdari not found
+          )
+        shell: cmd
+
+      - name: Upload logs and dist artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -42,5 +81,7 @@ jobs:
           path: |
             dist/Hesabdari/**
             dist_installer/Hesabdari_Setup.exe
-            build.log
+            pyinstaller_build.log
+            pyinstaller_install.log
+            pip_install.log
             || true
