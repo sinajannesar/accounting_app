@@ -8,7 +8,8 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem, QComboBox, QLabel, QHeaderView, QFileDialog, QFrame,
 )
 
-from ui.widgets import show_error, format_amount, DateRangeWidget, apply_shadow
+from ui.widgets import show_error, format_amount, DateRangeWidget
+from ui.styles import SPACE_SM, SPACE_MD
 from utils.export import export_to_excel, export_to_pdf
 
 
@@ -28,12 +29,8 @@ class LedgerWidget(QWidget):
         content_card = QFrame()
         content_card.setObjectName("contentCard")
         content_layout = QVBoxLayout(content_card)
-        content_layout.setContentsMargins(8, 8, 8, 8)
-        content_layout.setSpacing(10)
-        try:
-            apply_shadow(content_card)
-        except Exception:
-            pass
+        content_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        content_layout.setSpacing(SPACE_MD)
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(QLabel("حساب:"))
         self.account_combo = QComboBox()
@@ -97,15 +94,19 @@ class LedgerWidget(QWidget):
             return
         self.info_label.setText(f"{self.title}: {account['code']} - {account['name']}")
         self._report_data = movements
-        self.table.setRowCount(len(movements))
-        for row, m in enumerate(movements):
-            self.table.setItem(row, 0, QTableWidgetItem(m["entry_date"]))
-            self.table.setItem(row, 1, QTableWidgetItem(str(m["entry_number"])))
-            desc = m.get("line_description") or m.get("entry_description") or ""
-            self.table.setItem(row, 2, QTableWidgetItem(desc))
-            self.table.setItem(row, 3, QTableWidgetItem(format_amount(m["debit"])))
-            self.table.setItem(row, 4, QTableWidgetItem(format_amount(m["credit"])))
-            self.table.setItem(row, 5, QTableWidgetItem(format_amount(m["balance"])))
+        self.table.setUpdatesEnabled(False)
+        try:
+            self.table.setRowCount(len(movements))
+            for row, m in enumerate(movements):
+                self.table.setItem(row, 0, QTableWidgetItem(m["entry_date"]))
+                self.table.setItem(row, 1, QTableWidgetItem(str(m["entry_number"])))
+                desc = m.get("line_description") or m.get("entry_description") or ""
+                self.table.setItem(row, 2, QTableWidgetItem(desc))
+                self.table.setItem(row, 3, QTableWidgetItem(format_amount(m["debit"])))
+                self.table.setItem(row, 4, QTableWidgetItem(format_amount(m["credit"])))
+                self.table.setItem(row, 5, QTableWidgetItem(format_amount(m["balance"])))
+        finally:
+            self.table.setUpdatesEnabled(True)
         # ensure wrapped descriptions are visible
         self.table.resizeRowsToContents()
 

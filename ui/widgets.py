@@ -8,17 +8,16 @@ from PyQt5.QtWidgets import (
 )
 from utils.jalali import JalaliDateEdit
 from utils.num2words_fa import amount_to_words_rial
-from ui.styles import COLOR_TEXT_MUTED
+from ui.styles import COLOR_TEXT_MUTED, SPACE_XS, SPACE_SM, COLOR_TEXT_PRIMARY
 
 
-def apply_shadow(widget, blur=28, y_offset=6, alpha=40):
-    """سایه‌ی ملایم برای کارت‌ها. QSS از box-shadow پشتیبانی نمی‌کند،
-    بنابراین سایه با QGraphicsDropShadowEffect در پایتون اعمال می‌شود."""
+def apply_shadow(widget, blur=18, y_offset=2, alpha=15):
+    """سایه‌ی سبک طراحی؛ فقط برای کارت داشبورد و پنجره‌های پاپ‌آپ."""
     effect = QGraphicsDropShadowEffect(widget)
     effect.setBlurRadius(blur)
     effect.setOffset(0, y_offset)
     # slightly darker, more visible shadow for modern UI
-    effect.setColor(QColor(6, 30, 80, alpha))
+    effect.setColor(QColor(17, 24, 39, alpha))
     widget.setGraphicsEffect(effect)
     return effect
 
@@ -69,7 +68,7 @@ class AmountInput(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
+        layout.setSpacing(SPACE_XS)
 
         self.spin = QDoubleSpinBox()
         self.spin.setRange(minimum, maximum)
@@ -81,7 +80,7 @@ class AmountInput(QWidget):
         self.words_label = QLabel("")
         self.words_label.setWordWrap(True)
         self.words_label.setStyleSheet(
-            f"color: {COLOR_TEXT_MUTED}; font-size: 9pt; padding: 2px 4px 0 4px; border: none;"
+            f"color: {COLOR_TEXT_MUTED}; font-size: 11px; padding: {SPACE_XS}px; border: none;"
         )
         layout.addWidget(self.words_label)
 

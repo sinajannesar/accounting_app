@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
 from models.journal import JournalModel
 from models.account import AccountModel
 from ui.widgets import show_error, show_info, show_confirm, format_amount, DateRangeWidget, AmountInput
-from ui.styles import COLOR_DANGER, COLOR_DANGER_LIGHT, COLOR_SUCCESS_DARK, COLOR_SUCCESS_LIGHT
+from ui.styles import COLOR_DANGER, COLOR_DANGER_LIGHT, COLOR_SUCCESS_DARK, COLOR_SUCCESS_LIGHT, COLOR_PRIMARY, SPACE_SM
 from utils.jalali import JalaliDateEdit, today_jalali
 from utils.export import export_receipt_pdf
 
@@ -150,7 +150,12 @@ class JournalEntryDialog(QDialog):
         self.lines_table = QTableWidget()
         self.lines_table.setColumnCount(5)
         self.lines_table.setHorizontalHeaderLabels(["حساب", "بدهکار", "بستانکار", "شرح", ""])
-        self.lines_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        lines_header = self.lines_table.horizontalHeader()
+        lines_header.setSectionResizeMode(0, QHeaderView.Stretch)
+        lines_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        lines_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        lines_header.setSectionResizeMode(3, QHeaderView.Stretch)
+        lines_header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
         self.lines_table.setSelectionBehavior(QTableWidget.SelectRows)
         lines_layout.addWidget(self.lines_table)
 
@@ -182,17 +187,21 @@ class JournalEntryDialog(QDialog):
     def _refresh_lines_table(self):
         # برای نمایش اسناد قدیمی، حتی حساب‌های قدیمیِ غیرقابل انتخاب نیز خوانده می‌شوند.
         accounts = {a["id"]: a for a in self.account_model.get_all(active_only=False)}
-        self.lines_table.setRowCount(len(self.lines))
+        self.lines_table.setUpdatesEnabled(False)
         total_d = total_c = 0
-        for row, line in enumerate(self.lines):
-            acc = accounts.get(line["account_id"], {})
-            acc_label = f"{acc.get('code', '')} - {acc.get('name', '')}"
-            self.lines_table.setItem(row, 0, QTableWidgetItem(acc_label))
-            self.lines_table.setItem(row, 1, QTableWidgetItem(format_amount(line["debit"])))
-            self.lines_table.setItem(row, 2, QTableWidgetItem(format_amount(line["credit"])))
-            self.lines_table.setItem(row, 3, QTableWidgetItem(line.get("line_description", "")))
-            total_d += line["debit"]
-            total_c += line["credit"]
+        try:
+            self.lines_table.setRowCount(len(self.lines))
+            for row, line in enumerate(self.lines):
+                acc = accounts.get(line["account_id"], {})
+                acc_label = f"{acc.get('code', '')} - {acc.get('name', '')}"
+                self.lines_table.setItem(row, 0, QTableWidgetItem(acc_label))
+                self.lines_table.setItem(row, 1, QTableWidgetItem(format_amount(line["debit"])))
+                self.lines_table.setItem(row, 2, QTableWidgetItem(format_amount(line["credit"])))
+                self.lines_table.setItem(row, 3, QTableWidgetItem(line.get("line_description", "")))
+                total_d += line["debit"]
+                total_c += line["credit"]
+        finally:
+            self.lines_table.setUpdatesEnabled(True)
         self.totals_label.setText(
             f"جمع بدهکار: {format_amount(total_d)} | جمع بستانکار: {format_amount(total_c)}"
         )
@@ -200,12 +209,12 @@ class JournalEntryDialog(QDialog):
         if abs(diff) > 0.01:
             self.totals_label.setStyleSheet(
                 f"color: {COLOR_DANGER}; font-weight: 700; background-color: {COLOR_DANGER_LIGHT}; "
-                f"border-radius: 6px; padding: 6px 10px;"
+                f"border-radius: 8px; padding: {SPACE_SM}px;"
             )
         else:
             self.totals_label.setStyleSheet(
                 f"color: {COLOR_SUCCESS_DARK}; font-weight: 700; background-color: {COLOR_SUCCESS_LIGHT}; "
-                f"border-radius: 6px; padding: 6px 10px;"
+                f"border-radius: 8px; padding: {SPACE_SM}px;"
             )
 
     def _add_line(self):
@@ -308,7 +317,10 @@ class JournalWidget(QWidget):
         self.entries_table.setHorizontalHeaderLabels(
             ["شماره سند", "تاریخ", "سررسید", "شرح", "جمع بدهکار", "جمع بستانکار"]
         )
-        self.entries_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        entries_header = self.entries_table.horizontalHeader()
+        for col in (0, 1, 2, 4, 5):
+            entries_header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        entries_header.setSectionResizeMode(3, QHeaderView.Stretch)
         self.entries_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.entries_table.setAlternatingRowColors(True)
         self.entries_table.doubleClicked.connect(self._edit_entry)
@@ -327,7 +339,10 @@ class JournalWidget(QWidget):
         self.due_table = QTableWidget()
         self.due_table.setColumnCount(4)
         self.due_table.setHorizontalHeaderLabels(["شماره سند", "تاریخ", "سررسید", "شرح"])
-        self.due_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        due_header = self.due_table.horizontalHeader()
+        for col in (0, 1, 2):
+            due_header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        due_header.setSectionResizeMode(3, QHeaderView.Stretch)
         self.due_table.setAlternatingRowColors(True)
         due_layout.addWidget(self.due_table)
         self.tabs.addTab(due_tab, "اسناد سررسید شده")
@@ -344,25 +359,33 @@ class JournalWidget(QWidget):
         search = self.search_edit.text().strip()
         self._entries = self.journal_model.get_entries(d_from, d_to, search)
 
-        self.entries_table.setRowCount(len(self._entries))
-        for row, entry in enumerate(self._entries):
-            self.entries_table.setItem(row, 0, QTableWidgetItem(str(entry["entry_number"])))
-            self.entries_table.setItem(row, 1, QTableWidgetItem(entry["entry_date"]))
-            self.entries_table.setItem(row, 2, QTableWidgetItem(entry.get("due_date") or ""))
-            self.entries_table.setItem(row, 3, QTableWidgetItem(entry.get("description") or ""))
-            self.entries_table.setItem(row, 4, QTableWidgetItem(format_amount(entry["total_debit"])))
-            self.entries_table.setItem(row, 5, QTableWidgetItem(format_amount(entry["total_credit"])))
+        self.entries_table.setUpdatesEnabled(False)
+        try:
+            self.entries_table.setRowCount(len(self._entries))
+            for row, entry in enumerate(self._entries):
+                self.entries_table.setItem(row, 0, QTableWidgetItem(str(entry["entry_number"])))
+                self.entries_table.setItem(row, 1, QTableWidgetItem(entry["entry_date"]))
+                self.entries_table.setItem(row, 2, QTableWidgetItem(entry.get("due_date") or ""))
+                self.entries_table.setItem(row, 3, QTableWidgetItem(entry.get("description") or ""))
+                self.entries_table.setItem(row, 4, QTableWidgetItem(format_amount(entry["total_debit"])))
+                self.entries_table.setItem(row, 5, QTableWidgetItem(format_amount(entry["total_credit"])))
+        finally:
+            self.entries_table.setUpdatesEnabled(True)
 
         self._refresh_due()
 
     def _refresh_due(self):
         self._due_entries = self.journal_model.get_due_entries()
-        self.due_table.setRowCount(len(self._due_entries))
-        for row, entry in enumerate(self._due_entries):
-            self.due_table.setItem(row, 0, QTableWidgetItem(str(entry["entry_number"])))
-            self.due_table.setItem(row, 1, QTableWidgetItem(entry["entry_date"]))
-            self.due_table.setItem(row, 2, QTableWidgetItem(entry.get("due_date") or ""))
-            self.due_table.setItem(row, 3, QTableWidgetItem(entry.get("description") or ""))
+        self.due_table.setUpdatesEnabled(False)
+        try:
+            self.due_table.setRowCount(len(self._due_entries))
+            for row, entry in enumerate(self._due_entries):
+                self.due_table.setItem(row, 0, QTableWidgetItem(str(entry["entry_number"])))
+                self.due_table.setItem(row, 1, QTableWidgetItem(entry["entry_date"]))
+                self.due_table.setItem(row, 2, QTableWidgetItem(entry.get("due_date") or ""))
+                self.due_table.setItem(row, 3, QTableWidgetItem(entry.get("description") or ""))
+        finally:
+            self.due_table.setUpdatesEnabled(True)
 
     def _selected_entry(self):
         row = self.entries_table.currentRow()

@@ -8,7 +8,8 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QSplitter, QFrame,
 )
 
-from ui.widgets import show_error, format_amount, DateRangeWidget, apply_shadow
+from ui.widgets import show_error, format_amount, DateRangeWidget
+from ui.styles import SPACE_SM, SPACE_MD
 from utils.export import export_to_excel, export_to_pdf
 
 
@@ -26,12 +27,8 @@ class GeneralLedgerWidget(QWidget):
         content_card = QFrame()
         content_card.setObjectName("contentCard")
         content_layout = QVBoxLayout(content_card)
-        content_layout.setContentsMargins(8, 8, 8, 8)
-        content_layout.setSpacing(10)
-        try:
-            apply_shadow(content_card)
-        except Exception:
-            pass
+        content_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        content_layout.setSpacing(SPACE_MD)
         self.date_range = DateRangeWidget()
         filter_layout.addWidget(self.date_range)
         run_btn = QPushButton("🔍 نمایش گزارش")
@@ -115,13 +112,17 @@ class GeneralLedgerWidget(QWidget):
         data = self.report_model.general_ledger(d_from, d_to)
         self._report_data = data
 
-        self.accounts_table.setRowCount(len(data))
-        for row, acc in enumerate(data):
-            self.accounts_table.setItem(row, 0, QTableWidgetItem(acc["code"]))
-            self.accounts_table.setItem(row, 1, QTableWidgetItem(acc["name"]))
-            self.accounts_table.setItem(row, 2, QTableWidgetItem(format_amount(acc["total_debit"])))
-            self.accounts_table.setItem(row, 3, QTableWidgetItem(format_amount(acc["total_credit"])))
-            self.accounts_table.setItem(row, 4, QTableWidgetItem(format_amount(acc["balance"])))
+        self.accounts_table.setUpdatesEnabled(False)
+        try:
+            self.accounts_table.setRowCount(len(data))
+            for row, acc in enumerate(data):
+                self.accounts_table.setItem(row, 0, QTableWidgetItem(acc["code"]))
+                self.accounts_table.setItem(row, 1, QTableWidgetItem(acc["name"]))
+                self.accounts_table.setItem(row, 2, QTableWidgetItem(format_amount(acc["total_debit"])))
+                self.accounts_table.setItem(row, 3, QTableWidgetItem(format_amount(acc["total_credit"])))
+                self.accounts_table.setItem(row, 4, QTableWidgetItem(format_amount(acc["balance"])))
+        finally:
+            self.accounts_table.setUpdatesEnabled(True)
         # ensure wrapped names are fully visible
         self.accounts_table.resizeRowsToContents()
 
@@ -137,17 +138,21 @@ class GeneralLedgerWidget(QWidget):
         self.detail_label.setText(f"گردش حساب: {acc['code']} - {acc['name']}")
 
         movements = acc["movements"]
-        self.movements_table.setRowCount(len(movements))
-        balance = 0
-        for row, m in enumerate(movements):
-            balance += m["debit"] - m["credit"]
-            self.movements_table.setItem(row, 0, QTableWidgetItem(m["entry_date"]))
-            self.movements_table.setItem(row, 1, QTableWidgetItem(str(m["entry_number"])))
-            desc = m.get("line_description") or m.get("entry_description") or ""
-            self.movements_table.setItem(row, 2, QTableWidgetItem(desc))
-            self.movements_table.setItem(row, 3, QTableWidgetItem(format_amount(m["debit"])))
-            self.movements_table.setItem(row, 4, QTableWidgetItem(format_amount(m["credit"])))
-            self.movements_table.setItem(row, 5, QTableWidgetItem(format_amount(balance)))
+        self.movements_table.setUpdatesEnabled(False)
+        try:
+            self.movements_table.setRowCount(len(movements))
+            balance = 0
+            for row, m in enumerate(movements):
+                balance += m["debit"] - m["credit"]
+                self.movements_table.setItem(row, 0, QTableWidgetItem(m["entry_date"]))
+                self.movements_table.setItem(row, 1, QTableWidgetItem(str(m["entry_number"])))
+                desc = m.get("line_description") or m.get("entry_description") or ""
+                self.movements_table.setItem(row, 2, QTableWidgetItem(desc))
+                self.movements_table.setItem(row, 3, QTableWidgetItem(format_amount(m["debit"])))
+                self.movements_table.setItem(row, 4, QTableWidgetItem(format_amount(m["credit"])))
+                self.movements_table.setItem(row, 5, QTableWidgetItem(format_amount(balance)))
+        finally:
+            self.movements_table.setUpdatesEnabled(True)
         # ensure movement descriptions are fully visible
         self.movements_table.resizeRowsToContents()
 

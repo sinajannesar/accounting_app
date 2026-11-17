@@ -6,7 +6,8 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem, QHeaderView, QFileDialog, QLabel, QGroupBox, QFrame,
 )
 
-from ui.widgets import show_error, format_amount, DateRangeWidget, apply_shadow
+from ui.widgets import show_error, format_amount, DateRangeWidget
+from ui.styles import COLOR_SUCCESS, COLOR_DANGER, SPACE_SM, SPACE_MD
 from utils.export import export_to_excel, export_to_pdf
 
 
@@ -23,12 +24,8 @@ class IncomeStatementWidget(QWidget):
         content_card = QFrame()
         content_card.setObjectName("contentCard")
         content_layout = QVBoxLayout(content_card)
-        content_layout.setContentsMargins(8, 8, 8, 8)
-        content_layout.setSpacing(10)
-        try:
-            apply_shadow(content_card)
-        except Exception:
-            pass
+        content_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        content_layout.setSpacing(SPACE_MD)
         filter_layout = QHBoxLayout()
         self.date_range = DateRangeWidget()
         filter_layout.addWidget(self.date_range)
@@ -94,20 +91,28 @@ class IncomeStatementWidget(QWidget):
         data = self.report_model.income_statement(d_from, d_to)
         self._report_data = data
 
-        self.income_table.setRowCount(len(data["income_items"]))
-        for row, item in enumerate(data["income_items"]):
-            self.income_table.setItem(row, 0, QTableWidgetItem(item["code"]))
-            self.income_table.setItem(row, 1, QTableWidgetItem(item["name"]))
-            self.income_table.setItem(row, 2, QTableWidgetItem(format_amount(item["amount"])))
+        self.income_table.setUpdatesEnabled(False)
+        try:
+            self.income_table.setRowCount(len(data["income_items"]))
+            for row, item in enumerate(data["income_items"]):
+                self.income_table.setItem(row, 0, QTableWidgetItem(item["code"]))
+                self.income_table.setItem(row, 1, QTableWidgetItem(item["name"]))
+                self.income_table.setItem(row, 2, QTableWidgetItem(format_amount(item["amount"])))
+        finally:
+            self.income_table.setUpdatesEnabled(True)
         # ensure wrapped names show fully
         self.income_table.resizeRowsToContents()
         self.total_income_label.setText(f"جمع درآمد: {format_amount(data['total_income'])} ریال")
 
-        self.expense_table.setRowCount(len(data["expense_items"]))
-        for row, item in enumerate(data["expense_items"]):
-            self.expense_table.setItem(row, 0, QTableWidgetItem(item["code"]))
-            self.expense_table.setItem(row, 1, QTableWidgetItem(item["name"]))
-            self.expense_table.setItem(row, 2, QTableWidgetItem(format_amount(item["amount"])))
+        self.expense_table.setUpdatesEnabled(False)
+        try:
+            self.expense_table.setRowCount(len(data["expense_items"]))
+            for row, item in enumerate(data["expense_items"]):
+                self.expense_table.setItem(row, 0, QTableWidgetItem(item["code"]))
+                self.expense_table.setItem(row, 1, QTableWidgetItem(item["name"]))
+                self.expense_table.setItem(row, 2, QTableWidgetItem(format_amount(item["amount"])))
+        finally:
+            self.expense_table.setUpdatesEnabled(True)
         # ensure wrapped names show fully
         self.expense_table.resizeRowsToContents()
         self.total_expense_label.setText(f"جمع هزینه: {format_amount(data['total_expense'])} ریال")
@@ -115,10 +120,10 @@ class IncomeStatementWidget(QWidget):
         net = data["net_profit"]
         if net >= 0:
             self.net_label.setText(f"سود خالص: {format_amount(net)} ریال")
-            self.net_label.setStyleSheet("color: #27ae60; font-size: 14pt; font-weight: bold;")
+            self.net_label.setStyleSheet(f"color: {COLOR_SUCCESS}; font-size: 15px; font-weight: 600;")
         else:
             self.net_label.setText(f"زیان خالص: {format_amount(abs(net))} ریال")
-            self.net_label.setStyleSheet("color: #e74c3c; font-size: 14pt; font-weight: bold;")
+            self.net_label.setStyleSheet(f"color: {COLOR_DANGER}; font-size: 15px; font-weight: 600;")
 
     def _export(self, fmt):
         if not self._report_data:

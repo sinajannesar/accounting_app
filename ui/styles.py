@@ -1,678 +1,155 @@
-# ui/styles.py — FULL FILE, replace entirely
-"""سیستم طراحی رابط کاربری — نسخه ۲ (RTL فارسی)
+"""توکن‌ها و استایل سراسری رابط کاربری.
 
-نکته: PyQt5/QSS محدودیت‌های CSS استاندارد را دارد (بدون box-shadow واقعی،
-بدون transition). سایه‌ی کارت‌ها با QGraphicsDropShadowEffect در پایتون
-اعمال می‌شود، نه در این استایل‌شیت. برای همین منظور از ui.widgets.apply_shadow
-استفاده کنید.
+QSS یک‌بار در ``run_app`` اعمال می‌شود. برای سایه‌ها از ``apply_shadow``
+در ui.widgets استفاده کنید؛ QSS از box-shadow پشتیبانی نمی‌کند.
 """
 
-# ---------------------------------------------------------------------------
-# پالت رنگی (Design Tokens)
-# ---------------------------------------------------------------------------
-# New palette per user request
+# Colors
 COLOR_PRIMARY = "#4F46E5"
 COLOR_PRIMARY_HOVER = "#4338CA"
-COLOR_PRIMARY_DARK = "#3730A3"
 COLOR_PRIMARY_LIGHT = "#EEF2FF"
-COLOR_PRIMARY_VERY_LIGHT = "#F5F7FF"
+COLOR_BG = "#F9FAFB"
+COLOR_SURFACE = "#FFFFFF"
+COLOR_BORDER = "#E5E7EB"
+COLOR_BORDER_STRONG = "#D1D5DB"
+COLOR_TEXT_PRIMARY = "#111827"
+COLOR_TEXT_SECONDARY = "#6B7280"
+COLOR_SUCCESS = "#16A34A"
+COLOR_DANGER = "#DC2626"
+COLOR_WARNING = "#D97706"
 
-COLOR_ACCENT = "#7C3AED"
+# Compatibility names used by the existing UI modules. New code should use the
+# names above, which are the design-system source of truth.
+COLOR_CARD = COLOR_SURFACE
+COLOR_CARD_ALT = "#F3F4F6"
+COLOR_TEXT = COLOR_TEXT_PRIMARY
+COLOR_TEXT_DARK = COLOR_TEXT_PRIMARY
+COLOR_TEXT_MUTED = COLOR_TEXT_SECONDARY
+COLOR_TEXT_FAINT = "#9CA3AF"
+COLOR_CHART_TEXT = COLOR_TEXT_SECONDARY
+COLOR_PRIMARY_DARK = COLOR_PRIMARY_HOVER
+COLOR_PRIMARY_DARKER = COLOR_PRIMARY_HOVER
+COLOR_SUCCESS_DARK = COLOR_SUCCESS
+COLOR_SUCCESS_LIGHT = "#F0FDF4"
+COLOR_DANGER_LIGHT = "#FEF2F2"
+COLOR_WARNING_LIGHT = "#FFFBEB"
+COLOR_INFO = "#0284C7"
+COLOR_INFO_LIGHT = "#F0F9FF"
 
-COLOR_SUCCESS = "#12B76A"
-COLOR_SUCCESS_LIGHT = "#ECFDF3"
-
-COLOR_DANGER = "#F04438"
-COLOR_DANGER_LIGHT = "#FEF3F2"
-
-COLOR_WARNING = "#F79009"
-COLOR_WARNING_LIGHT = "#FFFAEB"
-
-COLOR_INFO = "#0EA5E9"
-COLOR_INFO_LIGHT = "#E6F7FF"
-
-# accent palette for dashboard quick-cards (pastel)
-ACCENT_GREEN = "#DFF7EA"
-ACCENT_ORANGE = "#FFF2E6"
-ACCENT_PURPLE = "#F3E9FF"
-ACCENT_CYAN = "#E8F7FF"
-
-# sidebar tokens
-SIDEBAR_DARK = "#111827"
-SIDEBAR_DARK_SECONDARY = "#1F2937"
-SIDEBAR_ACTIVE = "#312E81"
-# Make all sidebar text white per user request
-SIDEBAR_TEXT = "#FFFFFF"
-SIDEBAR_MUTED = "#FFFFFF"
-
-# Additional darker variants used by older rules
-COLOR_PRIMARY_DARKER = "#312E81"
-COLOR_SUCCESS_DARK = "#0F9C57"
-COLOR_DANGER_DARK = "#D92F1F"
-
-COLOR_TEXT = "#172033"  # requested
-COLOR_TEXT_MUTED = "#667085"
-COLOR_TEXT_FAINT = "#98A0B0"
-COLOR_TEXT_DARK = "#101828"
-COLOR_CHART_TEXT = "#344054"
-
-COLOR_BG = "#F7F8FC"
-COLOR_CARD = "#FFFFFF"
-COLOR_CARD_ALT = "#FAFBFF"
-COLOR_BORDER = "#E4E7EC"
-COLOR_BORDER_STRONG = "#D0D5DD"
-
-# مقیاس فاصله‌گذاری (px) — برای استفاده‌ی یکدست در setContentsMargins/setSpacing
+# Spacing (multiples of four only)
 SPACE_XS = 4
 SPACE_SM = 8
-SPACE_MD = 14
-SPACE_LG = 20
-SPACE_XL = 28
+SPACE_MD = 12
+SPACE_LG = 16
+SPACE_XL = 24
+SPACE_XXL = 32
 
-RADIUS_SM = 6
-RADIUS_MD = 10
-RADIUS_LG = 14
+RADIUS_SM = 8
+RADIUS_MD = 12
+RADIUS_LG = 16
 
-# ---------------------------------------------------------------------------
-# استایل‌شیت سراسری
-# ---------------------------------------------------------------------------
 APP_STYLE = f"""
-* {{
-    outline: none;
-}}
-
+* {{ outline: none; }}
 QMainWindow, QWidget {{
-    font-family: "Vazirmatn", "IRANSans", "Tahoma", "Segoe UI", Arial, sans-serif;
-    font-size: 10.5pt;
-    color: {COLOR_TEXT};
-    background-color: {COLOR_BG};
-}}
-
-QToolTip {{
-    background-color: {COLOR_TEXT};
-    color: white;
-    border: none;
-    border-radius: {RADIUS_SM}px;
-    padding: 6px 10px;
-    font-size: 9.5pt;
-}}
-
-/* ---------- منو و نوار ابزار ---------- */
-QMenuBar {{
-    background-color: {COLOR_CARD};
-    color: {COLOR_TEXT};
-    padding: 4px;
-    border-bottom: 1px solid {COLOR_BORDER};
-}}
-
-QMenuBar::item {{
-    padding: 7px 16px;
-    border-radius: {RADIUS_SM}px;
-    background: transparent;
-}}
-
-QMenuBar::item:selected {{
-    background-color: {COLOR_PRIMARY_LIGHT};
-    color: {COLOR_PRIMARY_DARK};
-}}
-
-QMenu {{
-    background-color: {COLOR_CARD};
-    border: 1px solid {COLOR_BORDER};
-    border-radius: {RADIUS_MD}px;
-    padding: 6px;
-}}
-
-QMenu::item {{
-    padding: 9px 24px;
-    border-radius: {RADIUS_SM}px;
-}}
-
-QMenu::item:selected {{
-    background-color: {COLOR_PRIMARY_LIGHT};
-    color: {COLOR_PRIMARY_DARK};
-}}
-
-QMenu::separator {{
-    height: 1px;
-    background: {COLOR_BORDER};
-    margin: 6px 4px;
-}}
-
-QToolBar {{
-    background-color: {COLOR_CARD};
-    border-bottom: 1px solid {COLOR_BORDER};
-    spacing: 6px;
-    padding: 6px;
-}}
-
-/* ---------- دکمه‌ها ---------- */
-/* Primary buttons: subtle flat gradient */
-QPushButton {{
-    background-color: {COLOR_PRIMARY};
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 10px;
-    min-width: 84px;
-    font-weight: 700;
-}}
-QPushButton:hover {{
-    background-color: {COLOR_PRIMARY_HOVER};
-}}
-QPushButton:pressed {{
-    /* no transform in Qt stylesheets */
-}}
-
-QPushButton:disabled {{
-    background-color: #d3d7e2;
-    color: #f2f3f7;
-}}
-
-QPushButton#dangerBtn {{
-    background-color: {COLOR_DANGER};
-}}
-QPushButton#dangerBtn:hover {{
-    background-color: {COLOR_DANGER};
-}}
-
-QPushButton#successBtn {{
-    background-color: {COLOR_SUCCESS};
-}}
-QPushButton#successBtn:hover {{
-    background-color: {COLOR_SUCCESS_DARK};
-}}
-
-QPushButton#flatBtn {{
-    background-color: {COLOR_CARD};
-    color: {COLOR_TEXT};
-    border: 1.5px solid {COLOR_BORDER_STRONG};
-    font-weight: 600;
-}}
-QPushButton#flatBtn:hover {{
-    background-color: {COLOR_PRIMARY_LIGHT};
-    border-color: {COLOR_PRIMARY};
-    color: {COLOR_PRIMARY_DARK};
-}}
-
-/* ---------- ورودی‌ها ---------- */
-/* Inputs: white, thin border, consistent height */
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QDateEdit {{
-    border: 1px solid {COLOR_BORDER};
-    border-radius: 10px;
-    padding: 8px 12px;
-    background-color: {COLOR_CARD};
-    min-height: 36px;
-    selection-background-color: {COLOR_PRIMARY};
-    selection-color: white;
-}}
-
-QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QTextEdit:hover, QDateEdit:hover {{
-    border-color: {COLOR_BORDER_STRONG};
-}}
-
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus, QDateEdit:focus {{
-    border: 1.5px solid {COLOR_PRIMARY};
-}}
-
-QLineEdit:disabled, QComboBox:disabled, QDoubleSpinBox:disabled {{
-    background-color: {COLOR_CARD_ALT};
-    color: {COLOR_TEXT_FAINT};
-}}
-
-QComboBox::drop-down {{
-    border: none;
-    width: 26px;
-}}
-
-QComboBox QAbstractItemView {{
-    background-color: {COLOR_CARD};
-    border: 1px solid {COLOR_BORDER};
-    border-radius: {RADIUS_SM}px;
-    selection-background-color: {COLOR_PRIMARY_LIGHT};
-    selection-color: {COLOR_PRIMARY_DARK};
-    outline: none;
-    padding: 4px;
-}}
-
-
-QCalendarWidget QToolButton {{
-    color: {COLOR_TEXT};
-    background-color: transparent;
-    border-radius: {RADIUS_SM}px;
-    padding: 4px 8px;
-}}
-QCalendarWidget QToolButton:hover {{
-    background-color: {COLOR_PRIMARY_LIGHT};
-}}
-
-/* ---------- جدول‌ها ---------- */
-/* Tables: clean, minimal headers */
-QTableWidget {{
-    background-color: {COLOR_CARD};
-    alternate-background-color: {COLOR_CARD_ALT};
-    gridline-color: {COLOR_BORDER};
-    border: none;
-    border-radius: {RADIUS_MD}px;
-    selection-background-color: rgba(47,91,179,0.08);
-    selection-color: {COLOR_TEXT};
-}}
-
-QTableWidget::item {{
-    padding: 12px 14px;
-    border-bottom: 1px solid {COLOR_BORDER};
-    color: {COLOR_TEXT};
-}}
-
-QTableWidget::item:selected {{
-    background-color: rgba(47,91,179,0.08);
-    color: {COLOR_TEXT};
-}}
-
-QHeaderView::section {{
-    background-color: transparent;
-    color: {COLOR_TEXT};
-    padding: 10px 12px;
-    border: none;
-    border-bottom: 1px solid {COLOR_BORDER};
-    font-weight: 700;
-    font-size: 10pt;
-}}
-
-QHeaderView::section:first {{
-    border-top-right-radius: {RADIUS_MD}px;
-}}
-QHeaderView::section:last {{
-    border-top-left-radius: {RADIUS_MD}px;
-}}
-
-/* ---------- درخت (سرفصل حساب‌ها) ---------- */
-QTreeWidget {{
-    background-color: {COLOR_CARD};
-    border: 1px solid {COLOR_BORDER};
-    border-radius: {RADIUS_MD}px;
-    padding: 6px;
-    show-decoration-selected: 1;
-}}
-
-QTreeWidget::item {{
-    padding: 7px 4px;
-    border-radius: {RADIUS_SM}px;
-    margin: 1px 0;
-}}
-
-QTreeWidget::item:hover {{
-    background-color: {COLOR_CARD_ALT};
-}}
-
-QTreeWidget::item:selected {{
-    background-color: {COLOR_PRIMARY_LIGHT};
-    color: {COLOR_PRIMARY_DARK};
-}}
-
-QTreeWidget::branch {{
-    background: transparent;
-}}
-
-/* ---------- تب‌ها ---------- */
-QTabWidget::pane {{
-    border: 1px solid {COLOR_BORDER};
-    background-color: {COLOR_CARD};
-    border-radius: {RADIUS_MD}px;
-    top: -1px;
-}}
-
-QTabBar {{
-    background: transparent;
-}}
-
-/* QTabBar styling consolidated below (Top header / tabs) */
-
-/* ---------- گروه‌بندی ---------- */
-QGroupBox {{
-    font-weight: 700;
-    color: {COLOR_TEXT};
-    border: 1px solid {COLOR_BORDER};
-    border-radius: {RADIUS_MD}px;
-    margin-top: 16px;
-    padding-top: 20px;
-    background-color: {COLOR_CARD};
-}}
-
-QGroupBox::title {{
-    subcontrol-origin: margin;
-    padding: 0 12px;
-    color: {COLOR_TEXT_MUTED};
-}}
-
-/* ---------- برچسب‌های معنایی ---------- */
-QLabel#titleLabel {{
-    font-size: 12pt;
-    font-weight: 800;
-    color: {COLOR_TEXT};
-    padding: 1px 0 4px 0;
-}}
-
-QLabel#subtitleLabel {{
-    font-size: 9.5pt;
-    color: {COLOR_TEXT_MUTED};
-    padding-bottom: 4px;
-}}
-
-QLabel#balanceLabel {{
-    font-size: 16pt;
-    font-weight: 800;
-    color: {COLOR_SUCCESS_DARK};
-}}
-
-QLabel#sectionLabel {{
-    font-size: 9pt;
-    font-weight: 700;
-    color: {COLOR_TEXT};
-    padding-top: 0px;
-    margin: 0;
-    padding-bottom: 4px;
-}}
-
-/* Content cards */
-QFrame#contentCard {{
-    background-color: {COLOR_CARD};
-    border: 1px solid {COLOR_BORDER};
-    border-radius: 16px;
-    padding: 14px;
-}}
-
-/* Left sidebar */
-QFrame#rightSidebar {{
-    background-color: {SIDEBAR_DARK};
-    border-left: 1px solid {COLOR_BORDER};
-}}
-
-/* Sidebar width rules: use property selectors so programmatic min/max
-   settings and animations take effect depending on collapsed state. */
-QFrame#rightSidebar[collapsed="false"] {{
-    background-color: {SIDEBAR_DARK};
-    min-width: 240px;
-    max-width: 260px;
-    border-left: 1px solid {COLOR_BORDER};
-}}
-
-QFrame#rightSidebar[collapsed="true"] {{
-    background-color: {SIDEBAR_DARK};
-    min-width: 76px;
-    max-width: 76px;
-    border-left: 1px solid {COLOR_BORDER};
-}}
-
-/* Force all text inside the sidebar to white to ensure consistency */
-QFrame#rightSidebar, QFrame#rightSidebar * {{
-    color: {SIDEBAR_TEXT};
-}}
-
-/* Sidebar items (icon + label) */
-QPushButton#sidebarItem {{
-    background: transparent;
-    color: {SIDEBAR_TEXT};
-    text-align: right;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-weight: 600;
-}}
-QPushButton#sidebarItem:hover {{
-    background-color: {SIDEBAR_DARK_SECONDARY};
-    color: {SIDEBAR_TEXT};
-}}
-QPushButton#sidebarItem:checked {{
-    /* stronger contrast for active item */
-    background-color: {SIDEBAR_ACTIVE};
-    color: white;
-    /* RTL: indicator on the right edge */
-    border-right: 4px solid {COLOR_PRIMARY};
-    padding-right: 10px;
-}}
-
-/* Collapsed sidebar: compact rounded active chip centered */
-QFrame#rightSidebar[collapsed="true"] QPushButton#sidebarItem:checked {{
-    background-color: {COLOR_PRIMARY};
-    color: white;
-    border-radius: 22px;
-    min-width: 44px;
-    max-width: 44px;
-    min-height: 44px;
-    max-height: 44px;
-    margin: 6px auto;
-    padding: 0;
-}}
-
-/* Expanded vs Collapsed layouts for sidebar items */
-QFrame#rightSidebar[collapsed="false"] QPushButton#sidebarItem {{
-    text-align: right;
-    padding-right: 14px;
-    min-height: 44px;
-    max-height: 44px;
-    color: {SIDEBAR_TEXT};
-}}
-
-QFrame#rightSidebar[collapsed="true"] QPushButton#sidebarItem {{
-    text-align: center;
-    padding: 6px 0;
-    min-height: 44px;
-    max-height: 44px;
-    color: {SIDEBAR_TEXT};
-    min-width: 44px;
-}}
-
-/* Ensure QLabel children inside sidebar items are transparent and inherit text color
-   so they don't render white boxes in front of the dark sidebar. Also enforce
-   right-alignment for RTL layouts. */
-QPushButton#sidebarItem QLabel#sidebarItemText {{
-    background: transparent;
-    color: inherit;
-    border: none;
-    padding: 0;
-    margin: 0;
-}}
-
-QPushButton#sidebarItem QLabel#sidebarItemIcon {{
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0;
-}}
-
-/* Collapse button styling */
-QPushButton#sidebarCollapse {{
-    background: transparent;
-    color: {SIDEBAR_MUTED};
-    border: none;
-    padding: 8px;
-}}
-
-/* Header actions */
-QPushButton#headerAction {{
-    background: transparent;
-    border: none;
-    color: {COLOR_TEXT_MUTED};
-    padding: 6px 8px;
-}}
-
-QPushButton#sidebarSection {{
-    color: {SIDEBAR_TEXT};
-    background: transparent;
-    border: none;
-    padding: 8px 12px;
-    text-align: right;
-    font-weight: 700;
-}}
-
-QPushButton#sidebarProfile {{
-    background: transparent;
-    color: {SIDEBAR_TEXT};
-    border: none;
-    padding: 8px 12px;
-}}
-
-QPushButton#sidebarCollapse {{
-    background: transparent;
-    color: {SIDEBAR_MUTED};
-    border: 1px solid rgba(255,255,255,0.03);
-    border-radius: 8px;
-    padding: 6px;
-}}
-
-/* Top header / tabs */
-QTabBar::tab {{
-    background: transparent;
-    padding: 8px 12px;
-    margin: 0 6px;
-    color: {COLOR_TEXT_MUTED};
-    border-bottom: 2px solid transparent;
-}}
-
-QTabBar::tab:selected {{
-    color: {COLOR_PRIMARY};
-    border-bottom: 3px solid {COLOR_PRIMARY};
-    font-weight: 700;
-}}
-
-/* Metric card icon wrapper — targets QLabel used as icon inside MetricCard */
-QLabel[role="cardIcon"] {{
-    border-radius: 10px;
-    padding: 8px;
-    min-width: 40px;
-    min-height: 40px;
-}}
-
-/* Action buttons — add / delete */
-QPushButton.addBtn {{
-    background-color: #26A65B; /* vivid green */
-    color: white;
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-weight: 700;
-}}
-
-QPushButton.deleteBtn {{
-    background-color: #E14D4D; /* red */
-    color: white;
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-weight: 700;
-}}
-
-/* Flat small buttons (e.g., refresh/search) */
-QPushButton#flatBtn {{
-    background: transparent;
-    color: {COLOR_TEXT_MUTED};
-    border: 1px solid rgba(16,24,40,0.04);
-    border-radius: 10px;
-    padding: 6px 10px;
-}}
-
-/* Primary action buttons: gradient */
-QPushButton {{
-    border-radius: 10px;
-}}
-QPushButton#flatBtn, QPushButton#successBtn {{
-    background-color: {COLOR_PRIMARY};
-    color: white;
-    padding: 10px 16px;
-}}
-QPushButton#dangerBtn {{
-    background-color: {COLOR_DANGER};
-    color: white;
-    padding: 10px 16px;
-}}
-
-/* Metric cards */
-/* Metric cards */
-QFrame#metricCard {{
-    background-color: {COLOR_CARD};
-    border: 1px solid {COLOR_BORDER};
-    border-radius: 16px;
-    padding: 16px;
-}}
-QFrame#metricCard[variant="accent"] {{
-    background-color: {COLOR_CARD};
-    border: 1px solid {COLOR_BORDER};
-}}
-QFrame#metricCard QLabel {{
-    color: {COLOR_TEXT_MUTED};
-}}
-
-QDialog {{
-    background-color: {COLOR_BG};
-}}
-
-QMessageBox {{
-    background-color: {COLOR_CARD};
-}}
-QMessageBox QLabel {{
-    color: {COLOR_TEXT};
-}}
-QMessageBox QPushButton {{
-    min-width: 96px;
-}}
-
-/* ---------- اسکرول‌بار ---------- */
-QScrollBar:vertical {{
-    background: transparent;
-    width: 11px;
-    margin: 2px;
-}}
-QScrollBar::handle:vertical {{
-    background: {COLOR_BORDER_STRONG};
-    border-radius: 5px;
-    min-height: 28px;
-}}
-QScrollBar::handle:vertical:hover {{
-    background: #a9aebb;
-}}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-    height: 0;
-}}
-
-QScrollBar:horizontal {{
-    background: transparent;
-    height: 11px;
-    margin: 2px;
-}}
-QScrollBar::handle:horizontal {{
-    background: {COLOR_BORDER_STRONG};
-    border-radius: 5px;
-    min-width: 28px;
-}}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
-    width: 0;
-}}
-
-/* Ensure disabled and all descendant text in sidebar remains visible (white) */
-QFrame#rightSidebar QPushButton:disabled, QFrame#rightSidebar QLabel:disabled, QFrame#rightSidebar *:disabled {{
-    color: {SIDEBAR_TEXT};
-    opacity: 0.95;
-}}
-
-/* Strong override to make any remaining sidebar text white */
-QFrame#rightSidebar QPushButton, QFrame#rightSidebar QLabel, QFrame#rightSidebar * {{
-    color: {SIDEBAR_TEXT};
-}}
-
-/* Explicitly target the QLabel used for nav text and any QLabel inside sidebar items */
-QFrame#rightSidebar QLabel#sidebarItemText,
-QFrame#rightSidebar QPushButton#sidebarItem QLabel#sidebarItemText,
-QFrame#rightSidebar QPushButton#sidebarItem QLabel {{
-    color: {SIDEBAR_TEXT};
-}}
-
-/* Ensure section labels and profile/collapse labels are white in all states */
-QFrame#rightSidebar QPushButton#sidebarSection,
-QFrame#rightSidebar QPushButton#sidebarProfile,
-QFrame#rightSidebar QPushButton#sidebarCollapse {{
-    color: {SIDEBAR_TEXT};
-}}
-
-/* If any text is rendered via the button's own text instead of child QLabel */
-QFrame#rightSidebar QPushButton#sidebarItem {{
-    color: {SIDEBAR_TEXT};
-}}
+    background: {COLOR_BG}; color: {COLOR_TEXT_PRIMARY};
+    font-family: "Vazirmatn", "Segoe UI", Tahoma, sans-serif; font-size: 13px;
+}}
+QToolTip {{ background: {COLOR_TEXT_PRIMARY}; color: white; border: none;
+    border-radius: {RADIUS_SM}px; padding: {SPACE_SM}px; font-size: 11px; }}
+QMenuBar, QToolBar {{ background: {COLOR_SURFACE}; border-bottom: 1px solid {COLOR_BORDER}; padding: {SPACE_XS}px; }}
+QMenuBar::item {{ padding: {SPACE_SM}px {SPACE_LG}px; border-radius: {RADIUS_SM}px; }}
+QMenuBar::item:selected, QMenu::item:selected {{ background: {COLOR_PRIMARY_LIGHT}; color: {COLOR_PRIMARY}; }}
+QMenu {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MD}px; padding: {SPACE_XS}px; }}
+QMenu::item {{ padding: {SPACE_SM}px {SPACE_XL}px; border-radius: {RADIUS_SM}px; }}
+
+QPushButton {{ background: {COLOR_PRIMARY}; color: white; border: none; border-radius: {RADIUS_SM}px;
+    min-height: 32px; padding: {SPACE_SM}px {SPACE_LG}px; font-weight: 600; }}
+QPushButton:hover {{ background: {COLOR_PRIMARY_HOVER}; }}
+QPushButton:disabled {{ background: {COLOR_BORDER_STRONG}; color: {COLOR_TEXT_SECONDARY}; }}
+QPushButton#flatBtn {{ background: {COLOR_SURFACE}; color: {COLOR_TEXT_PRIMARY}; border: 1px solid {COLOR_BORDER}; }}
+QPushButton#flatBtn:hover {{ background: {COLOR_PRIMARY_LIGHT}; border-color: {COLOR_PRIMARY}; color: {COLOR_PRIMARY}; }}
+QPushButton#successBtn {{ background: {COLOR_SUCCESS}; }}
+QPushButton#dangerBtn {{ background: {COLOR_DANGER}; }}
+
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QDateEdit {{ background: {COLOR_SURFACE};
+    border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_SM}px; min-height: 32px; padding: {SPACE_SM}px {SPACE_MD}px;
+    selection-background-color: {COLOR_PRIMARY}; selection-color: white; }}
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QTextEdit:focus, QDateEdit:focus {{ border-color: {COLOR_PRIMARY}; }}
+QComboBox::drop-down {{ border: none; width: {SPACE_XL}px; }}
+QComboBox QAbstractItemView {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; selection-background-color: {COLOR_PRIMARY_LIGHT}; selection-color: {COLOR_TEXT_PRIMARY}; }}
+
+QTableWidget, QTreeWidget {{ background: {COLOR_SURFACE}; alternate-background-color: {COLOR_CARD_ALT};
+    border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MD}px; gridline-color: {COLOR_BORDER}; }}
+QTableWidget::item {{ padding: {SPACE_SM}px {SPACE_MD}px; border-bottom: 1px solid {COLOR_BORDER}; }}
+QTableWidget::item:selected, QTreeWidget::item:selected {{ background: {COLOR_PRIMARY_LIGHT}; color: {COLOR_TEXT_PRIMARY}; }}
+QHeaderView::section {{ background: {COLOR_SURFACE}; color: {COLOR_TEXT_SECONDARY}; border: none;
+    border-bottom: 1px solid {COLOR_BORDER}; padding: {SPACE_SM}px {SPACE_MD}px; font-weight: 600; font-size: 11px; }}
+QTreeWidget::item {{ padding: {SPACE_SM}px; border-radius: {RADIUS_SM}px; }}
+
+QGroupBox {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MD}px;
+    margin-top: {SPACE_LG}px; padding: {SPACE_LG}px; font-weight: 600; }}
+QGroupBox::title {{ subcontrol-origin: margin; padding: 0 {SPACE_SM}px; color: {COLOR_TEXT_PRIMARY}; }}
+QLabel#titleLabel {{ color: {COLOR_TEXT_PRIMARY}; font-size: 20px; font-weight: 700; }}
+QLabel#subtitleLabel {{ color: {COLOR_TEXT_SECONDARY}; font-size: 11px; }}
+QLabel#sectionLabel {{ color: {COLOR_TEXT_PRIMARY}; font-size: 15px; font-weight: 600; }}
+QLabel#balanceLabel {{ color: {COLOR_SUCCESS}; font-size: 20px; font-weight: 700; }}
+QFrame#contentCard, QFrame#appHeader {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_LG}px; }}
+QFrame#metricCard, QFrame#chartCard {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MD}px; }}
+QLabel#metricTitle {{ color: {COLOR_TEXT_SECONDARY}; font-size: 13px; font-weight: 600; }}
+QLabel#metricValue {{ color: {COLOR_TEXT_PRIMARY}; font-size: 20px; font-weight: 700; }}
+QLabel#metricUnit, QLabel#chartLegendLabel {{ color: {COLOR_TEXT_SECONDARY}; font-size: 11px; }}
+QWidget#monthlyBarChart {{ background: {COLOR_SURFACE}; }}
+
+QFrame#rightSidebar {{ background: {COLOR_SURFACE}; border-left: 1px solid {COLOR_BORDER}; }}
+QPushButton#sidebarLogo {{ background: transparent; color: {COLOR_TEXT_PRIMARY}; text-align: right; font-size: 15px; font-weight: 700; padding: {SPACE_SM}px; }}
+QPushButton#sidebarSection {{ background: transparent; color: {COLOR_TEXT_SECONDARY}; border: none; text-align: right; font-size: 11px; padding: {SPACE_SM}px; }}
+QPushButton#sidebarItem {{ background: transparent; color: {COLOR_TEXT_PRIMARY}; border: none; text-align: right;
+    min-height: 32px; padding: {SPACE_SM}px; border-radius: {RADIUS_SM}px; }}
+QPushButton#sidebarItem:hover {{ background: {COLOR_PRIMARY_LIGHT}; color: {COLOR_PRIMARY}; }}
+QPushButton#sidebarItem:checked {{ background: {COLOR_PRIMARY_LIGHT}; color: {COLOR_PRIMARY}; font-weight: 600; }}
+QPushButton#sidebarItem QLabel, QPushButton#sidebarItem QLabel#sidebarItemText, QPushButton#sidebarItem QLabel#sidebarItemIcon {{ background: transparent; border: none; color: inherit; }}
+QPushButton#sidebarCollapse, QPushButton#sidebarProfile, QPushButton#sidebarTheme {{ background: transparent; color: {COLOR_TEXT_SECONDARY}; border: 1px solid {COLOR_BORDER}; padding: {SPACE_SM}px; }}
+QTabWidget::pane {{ border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MD}px; background: {COLOR_SURFACE}; }}
+QTabBar::tab {{ color: {COLOR_TEXT_SECONDARY}; padding: {SPACE_SM}px {SPACE_MD}px; border-bottom: 2px solid transparent; }}
+QTabBar::tab:selected {{ color: {COLOR_PRIMARY}; border-bottom-color: {COLOR_PRIMARY}; font-weight: 600; }}
+QScrollBar:vertical {{ width: {SPACE_MD}px; background: transparent; }}
+QScrollBar::handle:vertical {{ background: {COLOR_BORDER_STRONG}; border-radius: {RADIUS_SM}px; min-height: {SPACE_XL}px; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 """
+
+# Added after the light stylesheet so controls keep the same geometry while
+# only their visual tokens change. It avoids translucent layers and blur.
+DARK_APP_STYLE = APP_STYLE + f"""
+QMainWindow, QWidget {{ background: #111827; color: #F9FAFB; }}
+QMenuBar, QToolBar, QMenu, QDialog, QMessageBox {{ background: #111827; color: #F9FAFB; border-color: #374151; }}
+QMenuBar::item:selected, QMenu::item:selected, QPushButton#sidebarItem:checked {{ background: #312E81; color: #E0E7FF; }}
+QPushButton {{ background: {COLOR_PRIMARY}; color: white; }}
+QPushButton:hover {{ background: {COLOR_PRIMARY_HOVER}; }}
+QPushButton#flatBtn, QPushButton#sidebarCollapse, QPushButton#sidebarProfile, QPushButton#sidebarTheme {{ background: #1F2937; color: #F9FAFB; border-color: #374151; }}
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QDateEdit {{ background: #1F2937; color: #F9FAFB; border-color: #374151; }}
+QComboBox QAbstractItemView {{ background: #1F2937; color: #F9FAFB; border-color: #374151; }}
+QTableWidget, QTreeWidget, QGroupBox, QFrame#contentCard, QFrame#appHeader {{ background: #1F2937; color: #F9FAFB; border-color: #374151; }}
+QFrame#metricCard, QFrame#chartCard {{ background: #1E293B; border-color: #334155; }}
+QFrame#chartCard QWidget#monthlyBarChart {{ background: #1E293B; }}
+QLabel#metricTitle, QLabel#metricUnit, QLabel#chartLegendLabel {{ color: #CBD5E1; }}
+QLabel#metricValue {{ color: #F8FAFC; }}
+QTableWidget {{ alternate-background-color: #182235; gridline-color: #374151; }}
+QTableWidget::item {{ border-bottom-color: #374151; }}
+QHeaderView::section {{ background: #1F2937; color: #D1D5DB; border-bottom-color: #374151; }}
+QLabel#titleLabel, QLabel#sectionLabel, QGroupBox::title {{ color: #F9FAFB; }}
+QLabel#subtitleLabel, QPushButton#sidebarSection {{ color: #9CA3AF; }}
+QFrame#rightSidebar {{ background: #111827; border-left-color: #334155; }}
+QPushButton#sidebarLogo, QPushButton#sidebarItem {{ color: #F8FAFC; }}
+QFrame#rightSidebar QLabel, QFrame#rightSidebar QPushButton#sidebarItem QLabel, QFrame#rightSidebar QLabel#sidebarItemText {{ color: #CBD5E1; background: transparent; }}
+QFrame#rightSidebar QPushButton#sidebarItem:checked QLabel, QFrame#rightSidebar QPushButton#sidebarItem:checked QLabel#sidebarItemText {{ color: #FFFFFF; }}
+QFrame#rightSidebar QPushButton#sidebarSection, QFrame#rightSidebar QPushButton:disabled {{ color: #94A3B8; }}
+QPushButton#sidebarItem:hover {{ background: #1F2937; color: #E0E7FF; }}
+QTabWidget::pane {{ background: #1F2937; border-color: #374151; }}
+QTabBar::tab {{ color: #9CA3AF; }}
+QScrollBar::handle:vertical {{ background: #4B5563; }}
+"""
+
+
+def app_style(dark=False):
+    """Return the application stylesheet for the chosen appearance."""
+    return DARK_APP_STYLE if dark else APP_STYLE

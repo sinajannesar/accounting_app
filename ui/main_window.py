@@ -3,10 +3,10 @@
 import sys
 
 from PyQt5.QtCore import Qt, QSize, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
-from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QFont, QFontDatabase
 from PyQt5.QtWidgets import (
     QMainWindow, QTabWidget, QMenuBar, QMenu, QAction,
-    QStatusBar, QFileDialog, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QPushButton, QStyle, QLabel, QBoxLayout,
+    QStatusBar, QFileDialog, QApplication, QWidget, QHBoxLayout, QVBoxLayout, QFrame, QPushButton, QStyle, QLabel, QBoxLayout, QSplitter,
 )
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtWidgets import QSizePolicy
@@ -25,7 +25,7 @@ from ui.reports.general_ledger import GeneralLedgerWidget
 from ui.reports.trial_balance import TrialBalanceWidget
 from ui.reports.income_statement import IncomeStatementWidget
 from ui.settings_widget import SettingsWidget
-from ui.styles import APP_STYLE
+from ui.styles import app_style, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL
 from ui.widgets import show_info, show_error, show_confirm, format_amount
 from utils.backup import restore_database
 from utils.jalali import today_jalali, jalali_str_add_days
@@ -45,7 +45,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("نرم‌افزار حسابداری")
         self.setMinimumSize(1000, 650)
         self.setLayoutDirection(Qt.RightToLeft)
-        self.setStyleSheet(APP_STYLE)
 
         self._build_menu()
         self._build_tabs()
@@ -120,15 +119,17 @@ class MainWindow(QMainWindow):
         central.setLayoutDirection(Qt.LeftToRight)
         central_layout = QHBoxLayout(central)
         central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
         sidebar = QFrame()
         sidebar.setObjectName("rightSidebar")
         sidebar_layout = QVBoxLayout(sidebar)
-        sidebar_layout.setContentsMargins(16, 18, 16, 18)
-        sidebar_layout.setSpacing(6)
+        sidebar_layout.setContentsMargins(SPACE_LG, SPACE_LG, SPACE_LG, SPACE_LG)
+        sidebar_layout.setSpacing(SPACE_SM)
         sidebar.setLayoutDirection(Qt.RightToLeft)
 
         # track collapsed state
         self._sidebar_collapsed = False
+        self._dark_mode = False
 
         # Header / logo area
         logo = QPushButton("نرم‌افزار حسابداری")
@@ -166,8 +167,8 @@ class MainWindow(QMainWindow):
 
             # inner layout: icon (QLabel) + text (QLabel) + stretch
             inner = QHBoxLayout()
-            inner.setContentsMargins(8, 6, 8, 6)
-            inner.setSpacing(8)
+            inner.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+            inner.setSpacing(SPACE_SM)
             inner.setDirection(QBoxLayout.RightToLeft)
             btn.setLayout(inner)
 
@@ -236,6 +237,14 @@ class MainWindow(QMainWindow):
         # footer actions
         add_nav_item("تنظیمات", "settings", icon=ic_settings)
 
+        theme_btn = QPushButton("حالت تیره")
+        theme_btn.setObjectName("sidebarTheme")
+        theme_btn.setCheckable(True)
+        theme_btn.setToolTip("تغییر حالت روشن و تیره")
+        theme_btn.clicked.connect(self._toggle_theme)
+        sidebar_layout.addWidget(theme_btn)
+        self._theme_btn = theme_btn
+
         # collapse toggle and profile
         collapse_btn = QPushButton()
         collapse_btn.setObjectName("sidebarCollapse")
@@ -251,7 +260,7 @@ class MainWindow(QMainWindow):
         profile_icon = os.path.join(os.path.dirname(__file__), "icons", "accounts.svg")
         if os.path.exists(profile_icon):
             profile.setIcon(QIcon(profile_icon))
-        profile.setFixedHeight(40)
+        profile.setMinimumHeight(40)
         sidebar_layout.addWidget(profile)
 
         # keep reference to sidebar and buttons for collapse behavior
@@ -270,41 +279,49 @@ class MainWindow(QMainWindow):
         # right content area with header + stack
         right = QWidget()
         right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(24, 18, 24, 18)
-        right_layout.setSpacing(12)
+        right_layout.setContentsMargins(SPACE_XL, SPACE_LG, SPACE_XL, SPACE_LG)
+        right_layout.setSpacing(SPACE_MD)
 
         header = QFrame()
         header.setObjectName("appHeader")
         header.setMinimumHeight(64)
         # build header contents: breadcrumb (right), actions (left)
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(12, 8, 12, 8)
-        header_layout.setSpacing(8)
+        header_layout.setContentsMargins(SPACE_MD, SPACE_SM, SPACE_MD, SPACE_SM)
+        header_layout.setSpacing(SPACE_SM)
         # breadcrumb (right side)
         breadcrumb = QLabel("")
         breadcrumb.setObjectName("breadcrumbLabel")
         breadcrumb.setText("")
         header_layout.addWidget(breadcrumb, 1)
         # header shows breadcrumb/title only (remove icon buttons)
-        header_layout.addSpacing(6)
+        header_layout.addSpacing(SPACE_SM)
 
         right_layout.addWidget(header)
         right_layout.addWidget(self.stack, 1)
 
-        # place the main content first then sidebar so sidebar appears on the right
-        central_layout.addWidget(right, 1)
-        central_layout.addWidget(sidebar)
+        # The splitter keeps the sidebar user-resizable on desktop widths.
+        self._main_splitter = QSplitter(Qt.Horizontal, central)
+        self._main_splitter.setLayoutDirection(Qt.LeftToRight)
+        self._main_splitter.setChildrenCollapsible(False)
+        self._main_splitter.addWidget(right)
+        self._main_splitter.addWidget(sidebar)
+        self._main_splitter.setStretchFactor(0, 1)
+        self._main_splitter.setStretchFactor(1, 0)
+        self._main_splitter.setSizes([960, 260])
+        central_layout.addWidget(self._main_splitter, 1)
 
         # sidebar width animation: animate both minimumWidth and maximumWidth together
         self._sidebar_anim_group = QParallelAnimationGroup(self)
         self._sidebar_anim_min = QPropertyAnimation(self._sidebar, b"minimumWidth")
         self._sidebar_anim_max = QPropertyAnimation(self._sidebar, b"maximumWidth")
         for a in (self._sidebar_anim_min, self._sidebar_anim_max):
-            a.setDuration(240)
+            a.setDuration(180)
             a.setEasingCurve(QEasingCurve.InOutCubic)
             self._sidebar_anim_group.addAnimation(a)
 
         self.setCentralWidget(central)
+        self.show_view("dashboard")
 
     def _on_tab_changed(self, index):
         # legacy: kept for compatibility if called; refresh current stacked widget
@@ -442,11 +459,11 @@ class MainWindow(QMainWindow):
 
         # animate width between expanded and collapsed values (min & max)
         current_min = self._sidebar.minimumWidth() or 240
-        current_max = self._sidebar.maximumWidth() or 260
+        current_max = self._sidebar.maximumWidth() or 320
         start_min = current_min
         start_max = current_max
         end_min = 76 if self._sidebar_collapsed else 240
-        end_max = 76 if self._sidebar_collapsed else 260
+        end_max = 76 if self._sidebar_collapsed else 480
 
         # stop previous animations
         try:
@@ -482,7 +499,7 @@ class MainWindow(QMainWindow):
             self._sidebar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
         else:
             self._sidebar.setMinimumWidth(240)
-            self._sidebar.setMaximumWidth(260)
+            self._sidebar.setMaximumWidth(480)
             # restore flexible sizing
             self._sidebar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
 
@@ -544,6 +561,18 @@ class MainWindow(QMainWindow):
         if self._collapse_btn:
             self._collapse_btn.setChecked(collapsed)
 
+        if hasattr(self, "_theme_btn"):
+            self._theme_btn.setText("تیره" if collapsed else ("حالت روشن" if self._dark_mode else "حالت تیره"))
+            self._theme_btn.setToolTip("تغییر حالت روشن و تیره")
+
+        # Keep the navigation physically pinned to the right in RTL layouts.
+        # QSplitter otherwise can mirror its children after a style/layout change.
+        if hasattr(self, "_main_splitter"):
+            self._main_splitter.setLayoutDirection(Qt.LeftToRight)
+            sidebar_width = 76 if collapsed else max(240, self._sidebar.width())
+            splitter_width = max(self._main_splitter.width(), sidebar_width + 1)
+            self._main_splitter.setSizes([splitter_width - sidebar_width, sidebar_width])
+
         # collapse button icon
         if self._collapse_btn:
             collapse_icon = os.path.join(os.path.dirname(__file__), "icons", "collapse.svg")
@@ -555,15 +584,36 @@ class MainWindow(QMainWindow):
                 if os.path.exists(collapse_icon):
                     self._collapse_btn.setIcon(QIcon(collapse_icon))
 
+    def _toggle_theme(self, enabled):
+        """Switch appearance without touching data models or rebuilding views."""
+        self._dark_mode = bool(enabled)
+        QApplication.instance().setStyleSheet(app_style(self._dark_mode))
+        self._apply_sidebar_state(self._sidebar_collapsed)
+
     def closeEvent(self, event):
         self.db.close()
         event.accept()
+
+    def resizeEvent(self, event):
+        """Compact navigation automatically on narrow desktop windows only."""
+        super().resizeEvent(event)
+        compact = event.size().width() < 1100
+        if hasattr(self, "_sidebar") and compact != self._sidebar_collapsed:
+            self._toggle_sidebar(compact)
 
 
 def run_app(db_path=None):
     app = QApplication(sys.argv)
     app.setLayoutDirection(Qt.RightToLeft)
-    app.setFont(QFont("Tahoma", 10))
+    font_path = os.path.join(os.path.dirname(__file__), "fonts", "Vazirmatn-Regular.ttf")
+    if os.path.exists(font_path):
+        font_id = QFontDatabase.addApplicationFont(font_path)
+        families = QFontDatabase.applicationFontFamilies(font_id) if font_id >= 0 else []
+        family = families[0] if families else "Segoe UI"
+    else:
+        family = "Vazirmatn" if "Vazirmatn" in QFontDatabase().families() else "Segoe UI"
+    app.setFont(QFont(family, 10))
+    app.setStyleSheet(app_style())
     window = MainWindow(db_path)
     window.show()
     sys.exit(app.exec_())

@@ -8,7 +8,8 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem, QHeaderView, QFileDialog, QCheckBox, QFrame,
 )
 
-from ui.widgets import show_error, format_amount, DateRangeWidget, apply_shadow
+from ui.widgets import show_error, format_amount, DateRangeWidget
+from ui.styles import SPACE_SM, SPACE_MD
 from utils.export import export_to_excel, export_to_pdf
 
 
@@ -25,12 +26,8 @@ class TrialBalanceWidget(QWidget):
         content_card = QFrame()
         content_card.setObjectName("contentCard")
         content_layout = QVBoxLayout(content_card)
-        content_layout.setContentsMargins(8, 8, 8, 8)
-        content_layout.setSpacing(10)
-        try:
-            apply_shadow(content_card)
-        except Exception:
-            pass
+        content_layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        content_layout.setSpacing(SPACE_MD)
         filter_layout = QHBoxLayout()
         self.date_range = DateRangeWidget()
         filter_layout.addWidget(self.date_range)
@@ -85,6 +82,7 @@ class TrialBalanceWidget(QWidget):
 
         self.table.setHorizontalHeaderLabels(headers)
         rows = data["rows"]
+        self.table.setUpdatesEnabled(False)
         self.table.setRowCount(len(rows) + 1)
 
         for row_idx, item in enumerate(rows):
@@ -124,6 +122,7 @@ class TrialBalanceWidget(QWidget):
         self.table.setTextElideMode(Qt.ElideNone)
         # resize rows so multi-line names are shown
         self.table.resizeRowsToContents()
+        self.table.setUpdatesEnabled(True)
 
     def _export(self, fmt):
         if not self._report_data:

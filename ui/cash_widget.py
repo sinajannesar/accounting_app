@@ -131,7 +131,13 @@ class CashWidget(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels(["تاریخ", "شماره سند", "شرح", "ورود", "خروج", ""])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.Stretch)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(5, QHeaderView.ResizeToContents)
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         layout.addWidget(self.table)
@@ -150,17 +156,21 @@ class CashWidget(QWidget):
         self.balance_label.setText(format_amount(balance) + " ریال")
 
         transactions = self.journal_model.get_cash_transactions(cash_id, d_from, d_to)
-        self.table.setRowCount(len(transactions))
-        for row, tx in enumerate(transactions):
-            self.table.setItem(row, 0, QTableWidgetItem(tx["entry_date"]))
-            self.table.setItem(row, 1, QTableWidgetItem(str(tx["entry_number"])))
-            desc = tx.get("line_description") or tx.get("description") or ""
-            self.table.setItem(row, 2, QTableWidgetItem(desc))
-            self.table.setItem(row, 3, QTableWidgetItem(format_amount(tx["debit"])))
-            self.table.setItem(row, 4, QTableWidgetItem(format_amount(tx["credit"])))
-            id_item = QTableWidgetItem("")
-            id_item.setData(Qt.UserRole, tx["entry_id"])
-            self.table.setItem(row, 5, id_item)
+        self.table.setUpdatesEnabled(False)
+        try:
+            self.table.setRowCount(len(transactions))
+            for row, tx in enumerate(transactions):
+                self.table.setItem(row, 0, QTableWidgetItem(tx["entry_date"]))
+                self.table.setItem(row, 1, QTableWidgetItem(str(tx["entry_number"])))
+                desc = tx.get("line_description") or tx.get("description") or ""
+                self.table.setItem(row, 2, QTableWidgetItem(desc))
+                self.table.setItem(row, 3, QTableWidgetItem(format_amount(tx["debit"])))
+                self.table.setItem(row, 4, QTableWidgetItem(format_amount(tx["credit"])))
+                id_item = QTableWidgetItem("")
+                id_item.setData(Qt.UserRole, tx["entry_id"])
+                self.table.setItem(row, 5, id_item)
+        finally:
+            self.table.setUpdatesEnabled(True)
 
     def _print_receipt(self):
         row = self.table.currentRow()

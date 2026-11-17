@@ -1,0 +1,10 @@
+.venv/
+venv/
+node_modules/
+public/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+database/*.db

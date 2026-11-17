@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import (
 
 from database.db_manager import ACCOUNT_TYPE_LABELS, LEVEL_LABELS
 from models.account import AccountModel
-from ui.widgets import show_error, show_info, show_confirm, apply_shadow
+from ui.widgets import show_error, show_info, show_confirm
+from ui.styles import SPACE_XS, SPACE_SM
 
 
 class AccountDialog(QDialog):
@@ -89,16 +90,16 @@ class AccountsWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        layout.setSpacing(6)
+        layout.setContentsMargins(SPACE_SM, SPACE_SM, SPACE_SM, SPACE_SM)
+        layout.setSpacing(SPACE_SM)
         # create title but add it inside content card so table area gets priority
         title = QLabel("کدینگ حساب‌ها")
         title.setObjectName("sectionLabel")
-        title.setContentsMargins(0, 0, 0, 2)
+        title.setContentsMargins(0, 0, 0, SPACE_XS)
         title.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         toolbar = QHBoxLayout()
         toolbar.setContentsMargins(0, 0, 0, 0)
-        toolbar.setSpacing(6)
+        toolbar.setSpacing(SPACE_SM)
         toolbar.addWidget(QLabel("گروه:")); self.group_combo = QComboBox(); self.group_combo.addItem("همه گروه‌ها", None)
         for key, label in ACCOUNT_TYPE_LABELS.items(): self.group_combo.addItem(label, key)
         self.group_combo.currentIndexChanged.connect(self.refresh); toolbar.addWidget(self.group_combo)
@@ -127,13 +128,9 @@ class AccountsWidget(QWidget):
         content_card = QFrame()
         content_card.setObjectName("contentCard")
         content_layout = QVBoxLayout(content_card)
-        content_layout.setContentsMargins(2, 2, 2, 4)
-        content_layout.setSpacing(6)
+        content_layout.setContentsMargins(SPACE_XS, SPACE_XS, SPACE_XS, SPACE_XS)
+        content_layout.setSpacing(SPACE_SM)
         # subtle shadow to lift the card from the background
-        try:
-            apply_shadow(content_card)
-        except Exception:
-            pass
         # add smaller title inside content card
         content_layout.addWidget(title)
         content_layout.addLayout(toolbar)
@@ -163,13 +160,17 @@ class AccountsWidget(QWidget):
             (parent_item.addChild(item) if parent_item else self.tree.addTopLevelItem(item)); self._add_tree_items(item, account["id"], children)
 
     def _fill_table(self, accounts):
-        self.table.setRowCount(len(accounts))
-        for row, account in enumerate(accounts):
-            values = [account["code"], account["name"], AccountModel.level_label(account["level"]), AccountModel.type_label(account["account_type"]), "فعال" if account["is_active"] else "غیرفعال"]
-            for column, value in enumerate(values):
-                item = QTableWidgetItem(value)
-                if column == 4: item.setData(Qt.UserRole, account["id"])
-                self.table.setItem(row, column, item)
+        self.table.setUpdatesEnabled(False)
+        try:
+            self.table.setRowCount(len(accounts))
+            for row, account in enumerate(accounts):
+                values = [account["code"], account["name"], AccountModel.level_label(account["level"]), AccountModel.type_label(account["account_type"]), "فعال" if account["is_active"] else "غیرفعال"]
+                for column, value in enumerate(values):
+                    item = QTableWidgetItem(value)
+                    if column == 4: item.setData(Qt.UserRole, account["id"])
+                    self.table.setItem(row, column, item)
+        finally:
+            self.table.setUpdatesEnabled(True)
         # ensure rows expand to show wrapped text for long names
         self.table.resizeRowsToContents()
 

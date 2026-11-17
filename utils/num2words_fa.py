@@ -79,17 +79,3 @@ def amount_to_words_rial(value):
     if words == "صفر":
         return "صفر ریال"
     return f"{words} ریال"
-
-
-def amount_to_words_toman(value):
-    """مبلغ را به حروف فارسی همراه با واحد تومان برمی‌گرداند (مبلغ ریالی تقسیم بر ۱۰)"""
-    try:
-        toman = float(value) / 10
-    except (TypeError, ValueError):
-        return ""
-    words = number_to_words_fa(toman)
-    if not words:
-        return ""
-    if words == "صفر":
-        return "صفر تومان"
-    return f"{words} تومان"

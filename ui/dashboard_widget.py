@@ -2,7 +2,7 @@
 """تب داشبورد — خلاصه وضعیت مالی"""
 
 from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QPixmap, QIcon
+from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QPixmap, QIcon, QPalette
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QGridLayout,
 )
@@ -12,7 +12,7 @@ from ui.widgets import format_amount, apply_shadow
 from ui.styles import (
     COLOR_CARD, COLOR_BORDER, COLOR_BORDER_STRONG, COLOR_TEXT, COLOR_TEXT_MUTED,
     COLOR_SUCCESS, COLOR_DANGER, COLOR_PRIMARY, COLOR_INFO,
-    RADIUS_MD, RADIUS_SM,
+    RADIUS_MD, RADIUS_SM, SPACE_XS, SPACE_SM, SPACE_MD, SPACE_LG, SPACE_XL,
 )
 from ui.styles import COLOR_TEXT_DARK, COLOR_CHART_TEXT
 from utils.jalali import last_n_months, current_jalali_year_month, PERSIAN_MONTH_NAMES
@@ -27,16 +27,14 @@ class MetricCard(QFrame):
         if color != COLOR_TEXT:
             self.setProperty("variant", "accent")
         self.setMinimumHeight(120)
-        # white card with subtle border
-        self.setStyleSheet(f"QFrame#metricCard {{ background-color: {COLOR_CARD}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MD}px; }}")
-        apply_shadow(self, blur=20, y_offset=3, alpha=22)
+        apply_shadow(self, blur=20, y_offset=2, alpha=15)
 
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(18, 16, 18, 16)
-        outer.setSpacing(8)
+        outer.setContentsMargins(SPACE_LG, SPACE_LG, SPACE_LG, SPACE_LG)
+        outer.setSpacing(SPACE_SM)
 
         header = QHBoxLayout()
-        header.setSpacing(8)
+        header.setSpacing(SPACE_SM)
         if icon:
             icon_label = QLabel()
             icon_label.setProperty("role", "cardIcon")
@@ -56,17 +54,17 @@ class MetricCard(QFrame):
             header.addWidget(icon_label, 0)
         self.title_label = QLabel(title)
         # Title: medium dark
-        self.title_label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 10pt; font-weight: 700; border: none;")
+        self.title_label.setObjectName("metricTitle")
         header.addWidget(self.title_label, 1)
         outer.addLayout(header)
 
         # main value and unit on same row for compactness
         value_row = QHBoxLayout()
         self.value_label = QLabel("0")
-        self.value_label.setStyleSheet(f"color: {COLOR_TEXT_DARK}; font-size: 18pt; font-weight: 900; border: none;")
+        self.value_label.setObjectName("metricValue")
         value_row.addWidget(self.value_label)
         self.unit_label = QLabel("")
-        self.unit_label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 11pt; padding-right: 8px;")
+        self.unit_label.setObjectName("metricUnit")
         value_row.addWidget(self.unit_label)
         value_row.addStretch()
         outer.addLayout(value_row)
@@ -91,10 +89,10 @@ class MonthlyBarChart(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.fillRect(self.rect(), QColor(COLOR_CARD))
+        painter.fillRect(self.rect(), self.palette().color(QPalette.Window))
 
         if not self.data:
-            painter.setPen(QPen(QColor(COLOR_CHART_TEXT)))
+            painter.setPen(QPen(self.palette().color(QPalette.Text)))
             painter.setFont(QFont("Vazirmatn", 10))
             painter.drawText(self.rect(), Qt.AlignCenter, "داده‌ای برای نمایش وجود ندارد")
             painter.end()
@@ -116,13 +114,13 @@ class MonthlyBarChart(QWidget):
         for i in range(5):
             y = margin_top + h - (h * i / 4)
             val = max_val * i / 4
-            painter.setPen(QPen(QColor(COLOR_BORDER)))
+            painter.setPen(QPen(self.palette().color(QPalette.Mid)))
             painter.drawLine(margin_left, int(y), margin_left + w, int(y))
-            painter.setPen(QPen(QColor(COLOR_CHART_TEXT)))
+            painter.setPen(QPen(self.palette().color(QPalette.Text)))
             painter.drawText(QRectF(0, y - 8, margin_left - 10, 16), Qt.AlignRight | Qt.AlignVCenter, format_amount(val))
 
         # محور پایه پررنگ‌تر از خطوط راهنما
-        painter.setPen(QPen(QColor(COLOR_BORDER_STRONG), 1.2))
+        painter.setPen(QPen(self.palette().color(QPalette.Mid), 1.2))
         painter.drawLine(margin_left, margin_top + h, margin_left + w, margin_top + h)
 
         n = len(self.data)
@@ -147,7 +145,7 @@ class MonthlyBarChart(QWidget):
                 QRectF(expense_x, margin_top + h - expense_h, bar_width, max(expense_h, 0)), 4, 4
             )
 
-            painter.setPen(QPen(QColor(COLOR_CHART_TEXT)))
+            painter.setPen(QPen(self.palette().color(QPalette.Text)))
             painter.setFont(QFont("Vazirmatn", 9))
             painter.drawText(
                 QRectF(group_center - group_width / 2, margin_top + h + 8, group_width, 20),
@@ -169,12 +167,12 @@ class DashboardWidget(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 18, 20, 18)
-        layout.setSpacing(14)
+        layout.setContentsMargins(SPACE_XL, SPACE_LG, SPACE_XL, SPACE_LG)
+        layout.setSpacing(SPACE_MD)
 
         header_row = QHBoxLayout()
         title_box = QVBoxLayout()
-        title_box.setSpacing(2)
+        title_box.setSpacing(SPACE_XS)
         title = QLabel("داشبورد خلاصه وضعیت مالی")
         title.setObjectName("titleLabel")
         title_box.addWidget(title)
@@ -195,11 +193,11 @@ class DashboardWidget(QWidget):
         layout.addLayout(header_row)
 
         cards_layout = QGridLayout()
-        cards_layout.setSpacing(14)
+        cards_layout.setSpacing(SPACE_MD)
         icons_dir = os.path.join(os.path.dirname(__file__), "icons")
-        self.income_card = MetricCard("درآمد این ماه", color=COLOR_SUCCESS, icon=os.path.join(icons_dir, "chart_up.svg"))
-        self.expense_card = MetricCard("هزینه این ماه", color=COLOR_DANGER, icon=os.path.join(icons_dir, "chart_down.svg"))
-        self.profit_card = MetricCard("سود/زیان این ماه", color=COLOR_PRIMARY, icon=os.path.join(icons_dir, "profit.svg"))
+        self.income_card = MetricCard("درآمد این ماه", color=COLOR_SUCCESS, icon=os.path.join(icons_dir, "report.svg"))
+        self.expense_card = MetricCard("هزینه این ماه", color=COLOR_DANGER, icon=os.path.join(icons_dir, "report.svg"))
+        self.profit_card = MetricCard("سود/زیان این ماه", color=COLOR_PRIMARY, icon=os.path.join(icons_dir, "ledger.svg"))
         self.cash_card = MetricCard("موجودی صندوق", color=COLOR_INFO, icon=os.path.join(icons_dir, "cash.svg"))
         cards_layout.addWidget(self.income_card, 0, 0)
         cards_layout.addWidget(self.expense_card, 0, 1)
@@ -210,17 +208,10 @@ class DashboardWidget(QWidget):
         # کارت نمودار — با سایه، مشابه بقیه کارت‌ها تا رابط یکدست بماند
         chart_card = QFrame()
         chart_card.setObjectName("chartCard")
-        chart_card.setStyleSheet(f"""
-            QFrame#chartCard {{
-                background-color: {COLOR_CARD};
-                border: 1px solid {COLOR_BORDER};
-                border-radius: {RADIUS_MD}px;
-            }}
-        """)
-        apply_shadow(chart_card, blur=20, y_offset=3, alpha=18)
+        apply_shadow(chart_card, blur=20, y_offset=2, alpha=15)
         chart_layout = QVBoxLayout(chart_card)
-        chart_layout.setContentsMargins(18, 16, 18, 12)
-        chart_layout.setSpacing(6)
+        chart_layout.setContentsMargins(SPACE_LG, SPACE_LG, SPACE_LG, SPACE_MD)
+        chart_layout.setSpacing(SPACE_SM)
 
         chart_header = QHBoxLayout()
         chart_title = QLabel("روند ۶ ماه اخیر")
@@ -232,6 +223,7 @@ class DashboardWidget(QWidget):
         chart_layout.addLayout(chart_header)
 
         self.chart = MonthlyBarChart()
+        self.chart.setObjectName("monthlyBarChart")
         chart_layout.addWidget(self.chart)
         layout.addWidget(chart_card, 1)
 
@@ -245,7 +237,7 @@ class DashboardWidget(QWidget):
         dot.setStyleSheet(f"background-color: {color}; border-radius: 5px;")
         row.addWidget(dot)
         label = QLabel(text)
-        label.setStyleSheet(f"color: {COLOR_TEXT_MUTED}; font-size: 9pt; border: none;")
+        label.setObjectName("chartLegendLabel")
         row.addWidget(label)
         return wrap
 

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "buildCommand": "npm run build",
+  "functions": {
+    "app.py": {
+      "includeFiles": "public/**"
+    }
+  }
+}
